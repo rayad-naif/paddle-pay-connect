@@ -81,12 +81,12 @@ async function refund(body: any) {
 
   const adjustment = await paddle.createAdjustment(
     requested >= total
-      ? { action: 'refund', type: 'full', transaction_id: txn.id, reason: 'Refund requested from HighLevel' }
+      ? { action: 'refund', type: 'full', transaction_id: txn.id, reason: 'Refund requested by the seller' }
       : {
           action: 'refund',
           type: 'partial',
           transaction_id: txn.id,
-          reason: 'Partial refund requested from HighLevel',
+          reason: 'Partial refund requested by the seller',
           items: [{ item_id: txn.details.line_items[0].id, type: 'partial', amount: String(requested) }],
         },
   );

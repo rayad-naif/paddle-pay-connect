@@ -47,7 +47,7 @@ export async function connectPaddle(locationId: string, apiKey: string): Promise
     throw permissionError(e, 'customer.read / transaction.read');
   }
   try {
-    clientToken = await paddle.createClientToken(`HighLevel ${locationId}`);
+    clientToken = await paddle.createClientToken(`Paddle Pay ${locationId}`);
   } catch (e) {
     throw permissionError(e, 'client_token.write');
   }
@@ -55,7 +55,7 @@ export async function connectPaddle(locationId: string, apiKey: string): Promise
     notification = await paddle.createNotificationSetting(
       `${config.appUrl}/webhooks/paddle/${id}`,
       PADDLE_EVENTS,
-      `HighLevel ${locationId}`,
+      `Paddle Pay ${locationId}`,
     );
   } catch (e) {
     await paddle.revokeClientToken(clientToken.id).catch(() => {});

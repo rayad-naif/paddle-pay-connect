@@ -124,7 +124,7 @@ async function api<T = any>(locationId: string, method: string, path: string, bo
     body: body === undefined ? undefined : JSON.stringify(body),
   });
   const json: any = await res.json().catch(() => ({}));
-  if (!res.ok) throw new GhlError(res.status, json.message ?? `GHL API error ${res.status} on ${path}`);
+  if (!res.ok) throw new GhlError(res.status, json.message ?? `CRM API error ${res.status} on ${path}`);
   return json;
 }
 
@@ -175,6 +175,6 @@ export async function sendProviderEvent(payload: Record<string, unknown>) {
   });
   if (!res.ok) {
     const text = await res.text().catch(() => '');
-    throw new GhlError(res.status, `GHL provider webhook rejected: ${res.status} ${text}`);
+    throw new GhlError(res.status, `CRM payment webhook rejected: ${res.status} ${text}`);
   }
 }

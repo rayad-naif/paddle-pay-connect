@@ -69,12 +69,12 @@
   <header>
     <div class="brand">
       <img src="/logo.svg" alt="">
-      <div><h1>Paddle Pay</h1><p>Paddle Billing for HighLevel</p></div>
+      <div><h1>Paddle Pay</h1><p>Paddle Billing for your CRM</p></div>
     </div>
     <span id="who" class="badge"></span>
   </header>
 
-  <div id="loading">Verifying your HighLevel session…</div>
+  <div id="loading">Verifying your session…</div>
 
   <div id="app" hidden>
     <nav>
@@ -95,9 +95,9 @@
         <div class="card">
           <h2>How payments flow</h2>
           <ul class="checklist">
-            <li><span class="dot">1</span><div>Customer pays in a HighLevel funnel, invoice or payment link<small>Paddle's secure checkout opens inside the page.</small></div></li>
+            <li><span class="dot">1</span><div>Customer pays in a funnel, website, store, invoice or payment link<small>Paddle's secure checkout opens inside the page.</small></div></li>
             <li><span class="dot">2</span><div>Paddle charges the card as Merchant of Record<small>Sales tax / VAT is calculated and remitted by Paddle.</small></div></li>
-            <li><span class="dot">3</span><div>HighLevel marks the order paid<small>Refunds from HighLevel are sent to Paddle automatically.</small></div></li>
+            <li><span class="dot">3</span><div>Your CRM marks the order paid<small>Refunds issued in your CRM are sent to Paddle automatically.</small></div></li>
           </ul>
         </div>
       </div>
@@ -119,12 +119,15 @@
       <div class="card">
         <h2>Your checkout domain</h2>
         <p style="color:var(--muted);margin:0 0 4px">In live mode, Paddle only opens checkout on a website approved in <b>your</b> Paddle account.
-          Connect a subdomain of your business website, for example <code>pay.yourbusiness.com</code>, and HighLevel checkout will run there.</p>
+          Connect a subdomain of your business website, for example <code>pay.yourbusiness.com</code>, and your checkout will run there.</p>
         <div id="domainBody"><p style="color:var(--muted)">Loading…</p></div>
       </div>
     </section>
 
     <section id="tab-guide" hidden>
+      <div class="note-link card" style="background:var(--accent-soft);border-color:transparent">
+        This is the short version. The <a href="/docs" target="_blank" rel="noopener">full setup guide</a> covers Paddle onboarding, website approval, testing, going live and troubleshooting.
+      </div>
       <div class="card">
         <h2>1. Create a Paddle API key</h2>
         <ol class="steps">
@@ -145,11 +148,11 @@
         </ol>
       </div>
       <div class="card">
-        <h2>3. Turn it on in HighLevel</h2>
+        <h2>3. Turn it on in your CRM</h2>
         <ol class="steps">
           <li>Open <b>Payments → Integrations</b>, find <b>Paddle Pay</b> and click <b>Set as default</b>.</li>
           <li>Use test mode with sandbox key and card <code>4242 4242 4242 4242</code>, any future expiry, CVC <code>100</code>.</li>
-          <li>Switch HighLevel to live mode once the live key is connected.</li>
+          <li>Switch your CRM's payments to live mode once the live key is connected.</li>
         </ol>
       </div>
     </section>
@@ -210,7 +213,7 @@
         status.live.connected && status.test.connected ? 'Sandbox and live keys connected' : '');
 
     const steps = [
-      [true, 'App installed in this sub-account', ''],
+      [true, 'App installed in this account', ''],
       [status.test.connected, 'Sandbox key connected', 'Connections → Sandbox'],
       [status.live.connected, 'Live key connected', 'Connections → Live'],
       [o.recent.some((p) => STATUS[p.status]?.[1] === 'ok'), 'First successful payment', 'Run a test purchase with card 4242 4242 4242 4242'],
@@ -315,7 +318,7 @@
           return `<span class="badge ${c}">${m === 'live' ? 'Live' : 'Sandbox'}: ${esc(l)}</span>`;
         }).join(' ');
         const unknown = domain.paddle && Object.values(domain.paddle).includes('unknown');
-        detail = `<p>Your HighLevel checkout now loads from <b>${esc(domain.hostname)}</b>.</p>
+        detail = `<p>Your checkout now loads from <b>${esc(domain.hostname)}</b>.</p>
           ${approvals ? `<p>Paddle website approval: ${approvals}</p>` : ''}
           ${unknown ? '<p style="color:var(--muted);font-size:13px">To show the approval status here, add the <code>checkout_domain.read</code> permission to your Paddle API key.</p>' : ''}
           <p>Finish in Paddle (sandbox approves domains automatically; live is reviewed by Paddle):</p>
@@ -324,8 +327,8 @@
               Paddle reviews your business at ${esc(domain.websiteUrl || '')}: it must show what you sell, prices, terms, privacy policy, refund policy and contact details.</li>
             <li><b>Checkout settings → Default payment link:</b> <code>${esc(domain.paymentLink)}</code> ${copyBtn(domain.paymentLink)}</li>
           </ol>
-          <p style="color:var(--muted);font-size:13px">You don't need to submit HighLevel's own domains (invoice and payment-link domains like <code>link.fastpaydirect.com</code>,
-          form domains like <code>api.leadconnectorhq.com</code>, or your funnel domain). Paddle checkout runs inside the frame served from ${esc(domain.hostname)}, which is the domain Paddle checks.</p>`;
+          <p style="color:var(--muted);font-size:13px">You don't need to submit your CRM's own domains (the invoice, payment-link and form domains, or your funnel and website domains).
+          Paddle checkout runs inside the frame served from ${esc(domain.hostname)}, which is the domain Paddle checks.</p>`;
       } else {
         detail = `<p>Add ${domain.records.length > 1 ? 'these DNS records' : 'this DNS record'} where your domain's DNS is managed (GoDaddy, Cloudflare, Namecheap…):</p>
           <div class="table-wrap"><table class="records"><thead><tr><th>Type</th><th>Name</th><th>Value</th><th></th></tr></thead><tbody>
@@ -344,7 +347,7 @@
         </div><div class="msg" id="dMsg"></div>`;
       if ($('dCheck')) $('dCheck').onclick = (e) => checkDomain(e.target);
       $('dRemove').onclick = async (e) => {
-        if (!confirm(`Remove ${domain.hostname}? HighLevel checkout will go back to the app's own domain.`)) return;
+        if (!confirm(`Remove ${domain.hostname}? Checkout will go back to the app's own domain.`)) return;
         e.target.disabled = true;
         try { domain = (await api('/api/settings/domain/remove', {})).domain; renderDomain(); }
         catch (err) { $('dMsg').className = 'msg err'; $('dMsg').textContent = err.message; e.target.disabled = false; }
@@ -384,8 +387,8 @@
     try { await render(); } finally { e.target.disabled = false; }
   };
 
-  // HighLevel custom pages: ask for encrypted user data, then trade it for a session.
-  // Depending on where HighLevel opens this page (menu link, Payments → Integrations panel)
+  // CRM custom pages: ask for encrypted user data, then trade it for a session.
+  // Depending on where the CRM opens this page (menu link, Payments → Integrations panel)
   // it can sit one or more frames deep, so ask every ancestor and keep asking for a while.
   let exchanging = false;
   window.addEventListener('message', async ({ data }) => {
@@ -401,7 +404,7 @@
         body: JSON.stringify({ encrypted: data.payload }),
       });
       const json = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(json.error || 'Could not verify your HighLevel session.');
+      if (!res.ok) throw new Error(json.error || 'Could not verify your session.');
       token = json.token;
       if (json.userName) { $('who').textContent = json.userName; }
       await render();
@@ -424,7 +427,7 @@
     }
   }
 
-  const outside = 'Open this page from inside HighLevel: the Paddle Pay item in the sub-account menu, or Payments → Integrations → Paddle Pay.';
+  const outside = 'Open this page from inside your CRM: the Paddle Pay item in the account menu, or Payments → Integrations → Paddle Pay.';
   if (window.parent === window) {
     loading.textContent = outside;
   } else {
@@ -433,7 +436,7 @@
     const timer = setInterval(() => {
       if (token || ++tries > 20) return clearInterval(timer);
       requestUserData();
-      if (tries === 8) loading.textContent = 'Still waiting for HighLevel to share your session… If this doesn\'t load, reload the page.';
+      if (tries === 8) loading.textContent = 'Still waiting for your CRM to share your session… If this doesn\'t load, reload the page.';
       if (tries === 20) loading.textContent = outside;
     }, 1000);
   }

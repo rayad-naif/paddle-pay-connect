@@ -13,12 +13,12 @@ settingsRouter.post('/api/settings/session', async (req, res) => {
   try {
     const user = decryptGhlSso(String(req.body?.encrypted ?? ''));
     const locationId = user.activeLocation;
-    if (!locationId) return res.status(400).json({ error: 'Open this page from inside a sub-account.' });
+    if (!locationId) return res.status(400).json({ error: 'Open this page from inside your CRM account.' });
     const installed = await db.installation.findUnique({ where: { locationId } });
-    if (!installed) return res.status(404).json({ error: 'The app is not installed for this sub-account. Reinstall it from the Marketplace.' });
+    if (!installed) return res.status(404).json({ error: 'Paddle Pay is not installed for this account. Install it again from the CRM app marketplace.' });
     res.json({ token: signSession(locationId), locationId, userName: user.userName ?? '' });
   } catch {
-    res.status(401).json({ error: 'Could not verify your HighLevel session.' });
+    res.status(401).json({ error: 'Could not verify your CRM session. Reload the page.' });
   }
 });
 

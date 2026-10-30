@@ -26,25 +26,25 @@ siteRouter.use(async (req, res, next) => {
   }
 });
 
-const PRODUCT = 'Paddle Pay for HighLevel';
+const PRODUCT = 'Paddle Pay';
 const UPDATED = '30 October 2026';
 const PLANS = [
-  { name: 'Sub-account', price: '$29', period: 'per sub-account / month', yearly: 'or $290 / year', features: ['One HighLevel sub-account', 'Sandbox and live Paddle connections', 'One-time payments and subscriptions', 'Refunds from HighLevel', 'Email support'] },
-  { name: 'Agency', price: '$149', period: 'per agency / month', yearly: 'or $1,490 / year', features: ['Unlimited sub-accounts', 'Everything in Sub-account', 'Bulk install across sub-accounts', 'Priority support'] },
+  { name: 'Single account', price: '$29', period: 'per account / month', yearly: 'or $290 / year', features: ['One CRM account', 'Sandbox and live Paddle connections', 'One-time payments and subscriptions', 'Refunds from your CRM', 'Email support'] },
+  { name: 'Unlimited accounts', price: '$149', period: 'per month', yearly: 'or $1,490 / year', features: ['Unlimited CRM accounts', 'Everything in Single account', 'Install across all your accounts at once', 'Priority support'] },
 ];
 
-function contactLine() {
+export function contactLine() {
   const b = config.business;
   const email = b.email ? `<a href="mailto:${escapeHtml(b.email)}">${escapeHtml(b.email)}</a>` : '';
   return [escapeHtml(b.name), escapeHtml(b.address), email].filter(Boolean).join(' · ');
 }
 
-function layout(title: string, body: string, { home = false } = {}) {
+export function layout(title: string, body: string, { home = false } = {}) {
   const b = config.business;
   return `<!doctype html><html lang="en"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>${escapeHtml(title)}</title>
-<meta name="description" content="${PRODUCT}: accept payments in HighLevel funnels, invoices and stores through Paddle Billing.">
+<meta name="description" content="${PRODUCT}: accept payments in your CRM's funnels, websites, stores, invoices and payment links through Paddle Billing.">
 <link rel="icon" href="/logo.svg">
 ${home ? `<script>if (window.self !== window.top) location.replace('/dashboard' + location.search);</script>` : ''}
 <style>
@@ -63,7 +63,8 @@ ${home ? `<script>if (window.self !== window.top) location.replace('/dashboard' 
   .hero { padding:72px 0 48px; text-align:center; }
   .hero h1 { font-size:clamp(30px,5vw,46px); line-height:1.15; margin:0 auto 16px; max-width:760px; }
   .hero p { color:var(--muted); font-size:18px; max-width:640px; margin:0 auto 28px; }
-  .btn { display:inline-block; padding:12px 20px; border-radius:10px; background:var(--accent); color:#fff; text-decoration:none; font-weight:600; }
+  .btn { display:inline-block; padding:12px 20px; border-radius:10px; background:var(--accent); color:#fff; text-decoration:none; font-weight:600; margin:4px; }
+  .btn.secondary { background:transparent; color:var(--accent); border:1px solid var(--accent); }
   section { padding:48px 0; }
   section.soft { background:var(--soft); }
   h2 { font-size:26px; margin:0 0 24px; text-align:center; }
@@ -83,12 +84,12 @@ ${home ? `<script>if (window.self !== window.top) location.replace('/dashboard' 
 </style></head><body>
 <header><div class="wrap">
   <a class="brand" href="/"><img src="/logo.svg" alt="">Paddle Pay</a>
-  <nav><a href="/#features">Features</a><a href="/pricing">Pricing</a><a href="/contact">Contact</a></nav>
+  <nav><a href="/#features">Features</a><a href="/pricing">Pricing</a><a href="/docs">Docs</a><a href="/contact">Contact</a></nav>
 </div></header>
 ${body}
 <footer><div class="wrap">
-  <div>© 2026 ${escapeHtml(b.name)}. ${PRODUCT} is not affiliated with Paddle.com or HighLevel.</div>
-  <div><a href="/terms">Terms</a><a href="/privacy">Privacy</a><a href="/refunds">Refunds</a><a href="/contact">Contact</a></div>
+  <div>© 2026 ${escapeHtml(b.name)}. ${PRODUCT} is an independent app and is not affiliated with Paddle.com.</div>
+  <div><a href="/docs">Docs</a><a href="/terms">Terms</a><a href="/privacy">Privacy</a><a href="/refunds">Refunds</a><a href="/contact">Contact</a></div>
 </div></footer>
 </body></html>`;
 }
@@ -104,16 +105,16 @@ function pricingCards() {
 siteRouter.get('/', (_req, res) => {
   res.send(layout(PRODUCT, `
 <div class="hero wrap">
-  <h1>Take payments in HighLevel with Paddle</h1>
-  <p>${PRODUCT} connects your own Paddle Billing account to HighLevel funnels, websites, invoices and payment links. Paddle handles checkout, sales tax and VAT as Merchant of Record.</p>
-  <a class="btn" href="/oauth/install">Install from the HighLevel Marketplace</a>
+  <h1>Take payments in your CRM with Paddle</h1>
+  <p>${PRODUCT} connects your own Paddle Billing account to your CRM's funnels, websites, stores, invoices and payment links. Paddle handles checkout, sales tax and VAT as Merchant of Record.</p>
+  <a class="btn" href="/oauth/install">Install the app</a> <a class="btn secondary" href="/docs">Read the setup guide</a>
 </div>
 <section class="soft" id="features"><div class="wrap">
   <h2>What it does</h2>
   <div class="grid">
-    <div class="card"><h3>Paddle checkout in HighLevel</h3><p>Customers pay in Paddle's secure checkout, embedded in your HighLevel order forms, invoices and payment links.</p></div>
-    <div class="card"><h3>Subscriptions</h3><p>Recurring HighLevel products become Paddle subscriptions, and renewals are reported back to HighLevel.</p></div>
-    <div class="card"><h3>Refunds from HighLevel</h3><p>Full and partial refunds issued in HighLevel are sent to Paddle automatically.</p></div>
+    <div class="card"><h3>Paddle checkout in your CRM</h3><p>Customers pay in Paddle's secure checkout, embedded in your order forms, store, invoices and payment links.</p></div>
+    <div class="card"><h3>Subscriptions</h3><p>Recurring products become Paddle subscriptions, and renewals are reported back to your CRM.</p></div>
+    <div class="card"><h3>Refunds from your CRM</h3><p>Full and partial refunds issued in your CRM are sent to Paddle automatically.</p></div>
     <div class="card"><h3>One-key setup</h3><p>Paste one Paddle API key. Webhooks, signing secrets and checkout tokens are created for you.</p></div>
   </div>
 </div></section>
@@ -150,7 +151,7 @@ siteRouter.get('/terms', (_req, res) => {
   <h2>1. Merchant of Record</h2>
   <p>Our order process is conducted by our online reseller Paddle.com. Paddle.com is the Merchant of Record for all our orders. Paddle provides all customer service inquiries and handles returns for payments made for the Service.</p>
   <h2>2. The Service</h2>
-  <p>The Service connects a HighLevel sub-account to the customer's own Paddle Billing account so that payments taken in HighLevel are processed by Paddle. You are responsible for your Paddle account, for being approved by Paddle, and for complying with Paddle's and HighLevel's terms.
+  <p>The Service connects a CRM account to the customer's own Paddle Billing account so that payments taken in the CRM are processed by Paddle. You are responsible for your Paddle account, for being approved by Paddle, and for complying with Paddle's terms and your CRM provider's terms.
   We do not hold or move your customers' funds; payments go directly to your Paddle account.</p>
   <h2>3. Subscriptions and billing</h2>
   <p>The Service is billed monthly or yearly in advance at the prices shown on our <a href="/pricing">pricing page</a>, after any free trial. Subscriptions renew automatically until cancelled. You can cancel at any time; cancellation takes effect at the end of the current billing period.
@@ -158,9 +159,9 @@ siteRouter.get('/terms', (_req, res) => {
   <h2>4. Acceptable use</h2>
   <p>You must not use the Service to sell anything prohibited by Paddle's Acceptable Use Policy or by law, to process fraudulent payments, or to interfere with the Service or other users.</p>
   <h2>5. Availability and support</h2>
-  <p>We aim to keep the Service available at all times but do not guarantee uninterrupted operation. The Service depends on HighLevel and Paddle, which we do not control.</p>
+  <p>We aim to keep the Service available at all times but do not guarantee uninterrupted operation. The Service depends on your CRM provider and on Paddle, which we do not control.</p>
   <h2>6. Liability</h2>
-  <p>To the extent permitted by law, the Service is provided "as is", and our total liability for any claim is limited to the fees you paid us in the 12 months before the claim. We are not liable for indirect or consequential losses, or for lost revenue caused by outages of HighLevel or Paddle.</p>
+  <p>To the extent permitted by law, the Service is provided "as is", and our total liability for any claim is limited to the fees you paid us in the 12 months before the claim. We are not liable for indirect or consequential losses, or for lost revenue caused by outages of your CRM provider or Paddle.</p>
   <h2>7. Termination</h2>
   <p>You can stop using the Service at any time by uninstalling it. We may suspend accounts that breach these terms. On uninstall we delete your stored Paddle credentials.</p>
   <h2>8. Changes and contact</h2>
@@ -176,14 +177,14 @@ siteRouter.get('/privacy', (_req, res) => {
   <p>This policy explains how ${b} handles personal data when you use ${PRODUCT}.</p>
   <h2>Data we process</h2>
   <ul>
-    <li><b>Account data:</b> your HighLevel location ID, user name and the OAuth tokens HighLevel issues when you install the app.</li>
+    <li><b>Account data:</b> your CRM account ID, user name and the access tokens your CRM issues when you install the app.</li>
     <li><b>Paddle credentials:</b> the Paddle API key you connect, stored encrypted (AES-256) and used only to operate the Service.</li>
     <li><b>Payment records:</b> transaction IDs, amounts, currencies, statuses and the contact ID and email needed to create a Paddle customer. We never see or store card numbers; card details are entered directly into Paddle's checkout.</li>
   </ul>
   <h2>How we use it</h2>
-  <p>Only to provide the Service: creating Paddle transactions, keeping HighLevel and Paddle in sync, processing refunds, showing your dashboard and providing support. We do not sell personal data or use it for advertising.</p>
+  <p>Only to provide the Service: creating Paddle transactions, keeping your CRM and Paddle in sync, processing refunds, showing your dashboard and providing support. We do not sell personal data or use it for advertising.</p>
   <h2>Who we share it with</h2>
-  <p>HighLevel and Paddle (to process payments), and our hosting and database providers, who process data on our behalf. Paddle is the Merchant of Record for purchases of the Service and processes buyer data under its own privacy policy at <a href="https://www.paddle.com/legal/privacy">paddle.com/legal/privacy</a>.</p>
+  <p>Your CRM provider and Paddle (to process payments), and our hosting and database providers, who process data on our behalf. Paddle is the Merchant of Record for purchases of the Service and processes buyer data under its own privacy policy at <a href="https://www.paddle.com/legal/privacy">paddle.com/legal/privacy</a>.</p>
   <h2>Retention and deletion</h2>
   <p>When you uninstall the app we revoke the Paddle tokens we created and delete your stored credentials. Payment records are kept for as long as needed for accounting and dispute handling, and then deleted. You can ask us to delete your data at any time.</p>
   <h2>Your rights</h2>
