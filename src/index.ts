@@ -8,6 +8,7 @@ import { queryRouter } from './routes/query';
 import { paddleWebhookRouter } from './routes/paddleWebhooks';
 import { siteRouter } from './routes/site';
 import { docsRouter } from './routes/docs';
+import { manageRouter } from './routes/manage';
 
 const app = express();
 app.disable('x-powered-by');
@@ -42,6 +43,7 @@ app.use(siteRouter);
 app.use(docsRouter);
 app.use(oauthRouter);
 app.use(settingsRouter);
+app.use(manageRouter);
 app.use(checkoutRouter);
 app.use(queryRouter);
 app.use(paddleWebhookRouter);

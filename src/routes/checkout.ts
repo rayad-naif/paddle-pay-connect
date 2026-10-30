@@ -121,6 +121,7 @@ checkoutRouter.post('/api/checkout/session', async (req, res) => {
       token: account.clientToken,
       // The transaction already carries the customer; only prefill when it doesn't.
       email: customerId ? null : contact.email ?? null,
+      allowDiscountCodes: (await db.locationSettings.findUnique({ where: { locationId: account.locationId } }))?.allowDiscountCodes ?? false,
       // Shown in the order summary until Paddle's own totals (with tax) arrive.
       productName,
       amount,

@@ -95,3 +95,11 @@ model CheckoutDomain {
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
 }
+
+/// Per-account preferences set in the dashboard.
+model LocationSettings {
+  locationId         String   @id
+  /// Show Paddle's "Add discount" field in checkout so buyers can enter discount codes.
+  allowDiscountCodes Boolean  @default(false)
+  updatedAt          DateTime @updatedAt
+}
