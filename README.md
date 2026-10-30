@@ -77,7 +77,30 @@ In marketplace.gohighlevel.com → My Apps → Create App:
 4. Deploy. The build runs `prisma db push`, which creates or updates the tables (it refuses changes that would lose data).
 5. `/checkout` and `/settings` are served as static pages via `vercel.json`, which also allows framing (`frame-ancestors *`).
 
+## Merchant checkout domains
+In live mode Paddle only opens checkout on a domain approved in the **merchant's own** Paddle
+account, and a merchant can't get this app's domain approved as their website. So each merchant
+connects a subdomain they own (Dashboard → **Checkout domain**):
+
+1. The merchant enters e.g. `pay.theirbusiness.com`. The app adds it to this Vercel project
+   (`VERCEL_API_TOKEN`, `VERCEL_PROJECT_ID_OR_NAME`, `VERCEL_TEAM_ID`) and shows the CNAME (and a TXT
+   record if Vercel needs ownership proof).
+2. Once DNS resolves and HTTPS works (`/health` answers), the app re-registers the HighLevel provider
+   with `paymentsUrl = https://pay.theirbusiness.com/checkout`; `queryUrl` stays on `APP_URL`.
+3. The merchant submits the domain in Paddle → Website approval and sets the default payment link to
+   `https://pay.theirbusiness.com/checkout`. That page also opens Paddle payment links (`?_ptxn=`).
+
+On a merchant domain every other page redirects to the merchant's own website, so Paddle reviews
+their business, not this app. The Vercel token needs access to the team that owns the project.
+
+## Public website
+`/`, `/pricing`, `/terms`, `/privacy`, `/refunds`, `/contact` are the app's own site for Paddle's review of
+`APP_URL`. Set `BUSINESS_NAME`, `BUSINESS_ADDRESS` and `SUPPORT_EMAIL`.
+
 ## Known limits / things to confirm against live GHL behaviour
+- **Updating `paymentsUrl`:** the app calls `POST /payments/custom-provider/provider` again to point
+  checkout at a merchant domain. If GHL keeps the old URL, the merchant must disconnect and reconnect
+  the integration.
 - **Saved cards / off-session charges:** Paddle only charges saved methods inside subscriptions, so
   `addCardOnFileSupported` is `false` and `charge_payment` / `create_subscription` are declined.
 - **GHL `Version` header:** set via `GHL_API_VERSION` (default `2021-07-28`). GHL's newer reference

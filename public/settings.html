@@ -55,6 +55,10 @@
     td code, li code { background:#f1f5f9; padding:1px 5px; border-radius:4px; font-size:12px; }
     .empty { color:var(--muted); text-align:center; padding:24px 8px; }
     ol.steps li { margin:8px 0; line-height:1.5; }
+    .records td { white-space:normal; word-break:break-all; }
+    .records td:first-child, .records td:last-child { white-space:nowrap; word-break:normal; }
+    .copy { white-space:nowrap; border:1px solid var(--line); background:#fff; border-radius:6px; padding:3px 8px; font-size:12px; }
+    .stack > * + * { margin-top:10px; }
     .notice { padding:14px 16px; border-radius:10px; background:var(--warn-soft); color:var(--warn); margin-bottom:16px; }
     #loading { color:var(--muted); padding:40px 0; text-align:center; }
     [hidden] { display:none !important; }
@@ -76,6 +80,7 @@
     <nav>
       <button data-tab="overview" class="active">Overview</button>
       <button data-tab="connections">Connections</button>
+      <button data-tab="domain">Checkout domain</button>
       <button data-tab="guide">Setup guide</button>
     </nav>
 
@@ -108,6 +113,15 @@
     <section id="tab-connections" hidden>
       <p style="color:var(--muted);margin:0 0 16px">Paste a Paddle API key. Webhooks, signing secrets and checkout tokens are set up automatically.</p>
       <div class="two" id="connections"></div>
+    </section>
+
+    <section id="tab-domain" hidden>
+      <div class="card">
+        <h2>Your checkout domain</h2>
+        <p style="color:var(--muted);margin:0 0 4px">In live mode, Paddle only opens checkout on a website approved in <b>your</b> Paddle account.
+          Connect a subdomain of your business website, for example <code>pay.yourbusiness.com</code>, and HighLevel checkout will run there.</p>
+        <div id="domainBody"><p style="color:var(--muted)">Loading…</p></div>
+      </div>
     </section>
 
     <section id="tab-guide" hidden>
@@ -171,7 +185,7 @@
   document.querySelectorAll('nav button').forEach((b) => b.onclick = () => showTab(b.dataset.tab));
   function showTab(name) {
     document.querySelectorAll('nav button').forEach((b) => b.classList.toggle('active', b.dataset.tab === name));
-    ['overview', 'connections', 'guide'].forEach((t) => $('tab-' + t).hidden = t !== name);
+    ['overview', 'connections', 'domain', 'guide'].forEach((t) => $('tab-' + t).hidden = t !== name);
   }
 
   // ---- overview ----
@@ -202,7 +216,9 @@
     ];
     $('checklist').innerHTML = steps.map(([done, title, hint]) =>
       `<li><span class="dot ${done ? 'ok' : ''}">${done ? '✓' : ''}</span><div>${esc(title)}${done || !hint ? '' : `<small>${esc(hint)}</small>`}</div></li>`).join('') +
+      `<li id="domainStep"></li>` +
       `<li><span class="dot">!</span><div>Set as default in Payments → Integrations<small>And set a default payment link in Paddle → Checkout settings.</small></div></li>`;
+    renderDomainStep();
 
     const stuck = o.recent.filter((p) => p.status === 'ready' || p.status === 'draft').length;
     const notice = $('notice');
@@ -257,6 +273,87 @@
     return el;
   }
 
+  // ---- checkout domain ----
+  let domain;          // undefined = not loaded yet, null = none
+  let domainPoll = null;
+  const DOMAIN_STATUS = { pending_dns: ['Waiting for DNS', 'warn'], issuing_certificate: ['Securing with HTTPS', 'warn'], active: ['Active', 'ok'] };
+
+  function renderDomainStep() {
+    const li = $('domainStep');
+    if (!li || domain === undefined) return;
+    const done = !!domain && domain.status === 'active';
+    li.innerHTML = `<span class="dot ${done ? 'ok' : ''}">${done ? '✓' : ''}</span><div>Checkout domain connected${done ? '' : '<small>Checkout domain tab: needed for Paddle live approval</small>'}</div>`;
+  }
+
+  function copyBtn(text) {
+    return `<button class="copy" data-copy="${esc(text)}">Copy</button>`;
+  }
+
+  function renderDomain() {
+    const body = $('domainBody');
+    clearInterval(domainPoll);
+    if (!domain) {
+      body.innerHTML = `<div class="stack" style="margin-top:12px">
+        <label>Checkout subdomain<input id="dHost" placeholder="pay.yourbusiness.com" autocomplete="off"></label>
+        <label>Your main website <span style="color:var(--muted)">(other pages on the subdomain redirect here)</span>
+          <input id="dSite" placeholder="https://yourbusiness.com" autocomplete="off"></label>
+        <button class="btn" id="dAdd">Connect domain</button><div class="msg" id="dMsg"></div></div>`;
+      $('dAdd').onclick = async (e) => {
+        e.target.disabled = true; $('dMsg').className = 'msg ok'; $('dMsg').textContent = 'Adding domain…';
+        try { domain = (await api('/api/settings/domain', { hostname: $('dHost').value, websiteUrl: $('dSite').value })).domain; renderDomain(); }
+        catch (err) { $('dMsg').className = 'msg err'; $('dMsg').textContent = err.message; e.target.disabled = false; }
+      };
+    } else {
+      const [label, cls] = DOMAIN_STATUS[domain.status] || [domain.status, ''];
+      let detail;
+      if (domain.status === 'active') {
+        detail = `<p>Your HighLevel checkout now loads from <b>${esc(domain.hostname)}</b>. Finish in Paddle (do this in both sandbox and live):</p>
+          <ol class="steps">
+            <li><b>Checkout → Website approval:</b> add <code>${esc(domain.hostname)}</code> and submit it. Paddle reviews your main website (${esc(domain.websiteUrl || '')}), so make sure it shows your products, prices, terms, privacy and refund policy.</li>
+            <li><b>Checkout → Checkout settings → Default payment link:</b> <code>${esc(domain.paymentLink)}</code> ${copyBtn(domain.paymentLink)}</li>
+          </ol>`;
+      } else {
+        detail = `<p>Add ${domain.records.length > 1 ? 'these DNS records' : 'this DNS record'} where your domain's DNS is managed (GoDaddy, Cloudflare, Namecheap…):</p>
+          <div class="table-wrap"><table class="records"><thead><tr><th>Type</th><th>Name</th><th>Value</th><th></th></tr></thead><tbody>
+          ${domain.records.map((r) => `<tr><td>${esc(r.type)}</td><td><code>${esc(r.name)}</code></td><td><code>${esc(r.value)}</code></td><td>${copyBtn(r.value)}</td></tr>`).join('')}
+          </tbody></table></div>
+          <p style="color:var(--muted);font-size:13px">Some providers want only the first part of the name (for example <code>${esc(domain.hostname.split('.')[0])}</code>).
+          If you use Cloudflare, set the record to <b>DNS only</b> (grey cloud). Changes usually take a few minutes, sometimes up to an hour.
+          ${domain.status === 'issuing_certificate' ? '<br><b>DNS is correct.</b> The HTTPS certificate is being issued, which takes a few minutes.' : ''}</p>`;
+        domainPoll = setInterval(() => { if (!$('tab-domain').hidden) checkDomain(); }, 20000);
+      }
+      body.innerHTML = `<div class="row" style="margin-top:12px"><b>${esc(domain.hostname)}</b><span class="badge ${cls}">${esc(label)}</span></div>
+        ${detail}
+        <div class="row" style="justify-content:flex-start">
+          ${domain.status === 'active' ? '' : '<button class="btn" id="dCheck">Check now</button>'}
+          <button class="btn secondary" id="dRemove">Remove domain</button>
+        </div><div class="msg" id="dMsg"></div>`;
+      if ($('dCheck')) $('dCheck').onclick = (e) => checkDomain(e.target);
+      $('dRemove').onclick = async (e) => {
+        if (!confirm(`Remove ${domain.hostname}? HighLevel checkout will go back to the app's own domain.`)) return;
+        e.target.disabled = true;
+        try { domain = (await api('/api/settings/domain/remove', {})).domain; renderDomain(); }
+        catch (err) { $('dMsg').className = 'msg err'; $('dMsg').textContent = err.message; e.target.disabled = false; }
+      };
+    }
+    body.querySelectorAll('[data-copy]').forEach((b) => b.onclick = () => {
+      try { navigator.clipboard.writeText(b.dataset.copy); b.textContent = 'Copied'; } catch {}
+    });
+    renderDomainStep();
+  }
+
+  async function checkDomain(btn) {
+    if (btn) btn.disabled = true;
+    try { domain = (await api('/api/settings/domain/check', {})).domain; renderDomain(); }
+    catch (err) { if ($('dMsg')) { $('dMsg').className = 'msg err'; $('dMsg').textContent = err.message; } }
+    finally { if (btn) btn.disabled = false; }
+  }
+
+  async function loadDomain() {
+    try { domain = (await api('/api/settings/domain')).domain; renderDomain(); }
+    catch (err) { $('domainBody').innerHTML = `<p class="msg err">${esc(err.message)}</p>`; }
+  }
+
   async function render() {
     const [s, o] = await Promise.all([api('/api/settings'), api('/api/settings/overview')]);
     status = s;
@@ -265,6 +362,7 @@
     app.hidden = false;
     loading.hidden = true;
     if (!s.test.connected && !s.live.connected) showTab('connections');
+    if (domain === undefined) loadDomain();
   }
 
   $('refresh').onclick = async (e) => {
@@ -272,31 +370,58 @@
     try { await render(); } finally { e.target.disabled = false; }
   };
 
-  // HighLevel custom pages: ask the parent for encrypted user data, then trade it for a session.
+  // HighLevel custom pages: ask for encrypted user data, then trade it for a session.
+  // Depending on where HighLevel opens this page (menu link, Payments → Integrations panel)
+  // it can sit one or more frames deep, so ask every ancestor and keep asking for a while.
+  let exchanging = false;
   window.addEventListener('message', async ({ data }) => {
-    if (!data || data.message !== 'REQUEST_USER_DATA_RESPONSE' || token) return;
+    if (typeof data === 'string') {
+      try { data = JSON.parse(data); } catch { return; }
+    }
+    if (!data || data.message !== 'REQUEST_USER_DATA_RESPONSE' || !data.payload || token || exchanging) return;
+    exchanging = true;
     try {
       const res = await fetch('/api/settings/session', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ encrypted: data.payload }),
       });
-      const json = await res.json();
-      if (!res.ok) throw new Error(json.error);
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(json.error || 'Could not verify your HighLevel session.');
       token = json.token;
       if (json.userName) { $('who').textContent = json.userName; }
       await render();
     } catch (err) {
       loading.textContent = err.message || 'Could not load the dashboard.';
+    } finally {
+      exchanging = false;
     }
   });
 
-  const outside = 'Open this page from inside HighLevel: Payments → Integrations → Paddle Pay, or the Paddle Pay item in the sub-account menu.';
+  function ancestors() {
+    const frames = [];
+    let w = window;
+    while (w.parent && w.parent !== w && frames.length < 5) { w = w.parent; frames.push(w); }
+    return frames;
+  }
+  function requestUserData() {
+    for (const f of ancestors()) {
+      try { f.postMessage({ message: 'REQUEST_USER_DATA' }, '*'); } catch {}
+    }
+  }
+
+  const outside = 'Open this page from inside HighLevel: the Paddle Pay item in the sub-account menu, or Payments → Integrations → Paddle Pay.';
   if (window.parent === window) {
     loading.textContent = outside;
   } else {
-    window.parent.postMessage({ message: 'REQUEST_USER_DATA' }, '*');
-    setTimeout(() => { if (!token) loading.textContent = outside; }, 8000);
+    requestUserData();
+    let tries = 0;
+    const timer = setInterval(() => {
+      if (token || ++tries > 20) return clearInterval(timer);
+      requestUserData();
+      if (tries === 8) loading.textContent = 'Still waiting for HighLevel to share your session… If this doesn\'t load, reload the page.';
+      if (tries === 20) loading.textContent = outside;
+    }, 1000);
   }
 </script>
 </body>

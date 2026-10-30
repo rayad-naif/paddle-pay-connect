@@ -90,10 +90,11 @@
       clearTimeout(loadTimer);
       busy = false;
       setStatus('');
-      cancelBtn.style.display = 'block';
+      if (!standalone) cancelBtn.style.display = 'block';
     }
     if (e.name === 'checkout.completed') {
-      setStatus('Payment received. Finishing up…');
+      setStatus(standalone ? 'Payment complete. Thank you! You can close this page.' : 'Payment received. Finishing up…');
+      container.classList.remove('open');
       toParent({ type: 'custom_element_success_response', chargeId: (e.data && e.data.transaction_id) || session.transactionId });
     }
     if (e.name === 'checkout.error' || e.name === 'checkout.payment.failed') {
@@ -103,6 +104,37 @@
       fail(err.code ? `${detail} (${err.code})` : detail, hintFor(err.code, detail));
     }
     if (e.name === 'checkout.closed') toParent({ type: 'custom_element_close_response' });
+  }
+
+  // Initializes Paddle.js (once per page) and opens the inline checkout for `session`.
+  function openCheckout() {
+    if (!window.Paddle) throw new Error('Paddle.js could not be loaded. Check your connection or ad blocker.');
+    if (!paddleToken) {
+      if (session.environment === 'sandbox') Paddle.Environment.set('sandbox');
+      Paddle.Initialize({ token: session.token, eventCallback: onPaddleEvent });
+      paddleToken = session.token;
+    }
+
+    setStatus('Opening Paddle checkout…');
+    container.classList.add('open');
+    loadTimer = setTimeout(() => fail(
+      'Paddle checkout did not load.',
+      'In Paddle, set a default payment link on an approved domain (Checkout → Checkout settings) and make sure the website is approved.',
+    ), LOAD_TIMEOUT_MS);
+
+    Paddle.Checkout.open({
+      transactionId: session.transactionId,
+      customer: session.email ? { email: session.email } : undefined,
+      settings: {
+        displayMode: 'inline',
+        variant: 'one-page',
+        frameTarget: 'checkout-container',
+        frameInitialHeight: 450,
+        frameStyle: 'width:100%; min-width:312px; background-color:transparent; border:none;',
+        showAddDiscounts: false,
+        allowLogout: false,
+      },
+    });
   }
 
   async function start(data) {
@@ -121,33 +153,7 @@
       if (!res.ok) throw new Error(json.error || 'Could not start checkout.');
       session = json;
 
-      if (!window.Paddle) throw new Error('Paddle.js could not be loaded. Check your connection or ad blocker.');
-      if (!paddleToken) {
-        if (session.environment === 'sandbox') Paddle.Environment.set('sandbox');
-        Paddle.Initialize({ token: session.token, eventCallback: onPaddleEvent });
-        paddleToken = session.token;
-      }
-
-      setStatus('Opening Paddle checkout…');
-      container.classList.add('open');
-      loadTimer = setTimeout(() => fail(
-        'Paddle checkout did not load.',
-        'In Paddle, set a default payment link on an approved domain (Checkout → Checkout settings) and make sure the website is approved.',
-      ), LOAD_TIMEOUT_MS);
-
-      Paddle.Checkout.open({
-        transactionId: session.transactionId,
-        customer: session.email ? { email: session.email } : undefined,
-        settings: {
-          displayMode: 'inline',
-          variant: 'one-page',
-          frameTarget: 'checkout-container',
-          frameInitialHeight: 450,
-          frameStyle: 'width:100%; min-width:312px; background-color:transparent; border:none;',
-          showAddDiscounts: false,
-          allowLogout: false,
-        },
-      });
+      openCheckout();
     } catch (err) {
       container.classList.remove('open');
       fail(err.message);
@@ -170,17 +176,38 @@
     start(data);
   });
 
+  // Opened from a Paddle payment link (?_ptxn=…), e.g. an invoice email: no HighLevel parent.
+  const linkTxn = new URLSearchParams(location.search).get('_ptxn');
+  const standalone = !!linkTxn || window.parent === window;
+  if (linkTxn) {
+    // Paddle.js would auto-open its own overlay for _ptxn; drop it and open inline instead.
+    history.replaceState(null, '', location.pathname);
+    (async () => {
+      setStatus('Preparing secure checkout…');
+      try {
+        const res = await fetch('/api/checkout/link?txn=' + encodeURIComponent(linkTxn));
+        const json = await res.json().catch(() => ({}));
+        if (!res.ok) throw new Error(json.error || 'This payment link is not valid.');
+        session = json;
+        openCheckout();
+      } catch (err) {
+        container.classList.remove('open');
+        fail(err.message);
+      }
+    })();
+  }
+
   // Tell HighLevel we're ready for payment_initiate_props. Its listener can attach after this
   // frame loads, so repeat the signal until the props arrive.
   const ready = () => toParent({ type: 'custom_provider_ready', loaded: true, addCardOnFileSupported: false });
-  ready();
+  if (!linkTxn) ready();
   let readyTries = 0;
   const readyTimer = setInterval(() => {
-    if (props || ++readyTries > 10) return clearInterval(readyTimer);
+    if (props || linkTxn || ++readyTries > 10) return clearInterval(readyTimer);
     ready();
   }, 1500);
   setTimeout(() => {
-    if (!props) setStatus('Waiting for payment details from the checkout page…', {
+    if (!props && !linkTxn) setStatus('Waiting for payment details from the checkout page…', {
       error: true,
       hint: 'Reload the page. If this keeps happening, make sure Paddle is set as the default payment provider in Payments → Integrations.',
     });

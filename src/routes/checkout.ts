@@ -135,3 +135,21 @@ checkoutRouter.post('/api/checkout/log', (req, res) => {
   console.warn('Paddle checkout error', String(transactionId ?? '').slice(0, 64), JSON.stringify(event ?? null).slice(0, 2000));
   res.status(204).end();
 });
+
+/**
+ * Paddle sends buyers to the default payment link with ?_ptxn=txn_… (invoice emails, retries).
+ * The checkout page asks which Paddle account and environment that transaction belongs to.
+ */
+checkoutRouter.get('/api/checkout/link', async (req, res) => {
+  const payment = await db.payment.findUnique({ where: { paddleTransactionId: String(req.query.txn ?? '') } });
+  if (!payment) return res.status(404).json({ error: 'This payment link is not valid.' });
+  const account = await db.paddleAccount.findUnique({
+    where: { locationId_mode: { locationId: payment.locationId, mode: payment.mode } },
+  });
+  if (!account) return res.status(404).json({ error: 'This seller is no longer accepting payments here.' });
+  res.json({
+    transactionId: payment.paddleTransactionId,
+    environment: account.mode === 'live' ? 'production' : 'sandbox',
+    token: account.clientToken,
+  });
+});

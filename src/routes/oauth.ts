@@ -4,6 +4,7 @@ import { config } from '../config';
 import { db } from '../db';
 import * as ghl from '../ghl/client';
 import { cleanupPaddle } from '../paddle/accounts';
+import { removeDomain } from '../domains';
 
 export const oauthRouter = Router();
 
@@ -48,6 +49,7 @@ oauthRouter.post('/webhooks/app', async (req, res) => {
   if (type === 'UNINSTALL' && locationId) {
     const accounts = await db.paddleAccount.findMany({ where: { locationId } });
     for (const a of accounts) await cleanupPaddle(a);
+    await removeDomain(locationId).catch((e) => console.warn('Remove checkout domain failed', e.message));
     await db.installation.deleteMany({ where: { locationId } });
     console.log(`Uninstalled ${locationId}`);
   }

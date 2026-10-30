@@ -132,15 +132,24 @@ async function api<T = any>(locationId: string, method: string, path: string, bo
 export async function ensureProvider(locationId: string) {
   const inst = await db.installation.findUnique({ where: { locationId } });
   if (inst?.providerCreated) return;
+  const domain = await db.checkoutDomain.findUnique({ where: { locationId } });
+  await registerProvider(locationId, domain?.status === 'active' ? `https://${domain.hostname}` : config.appUrl);
+  await db.installation.update({ where: { locationId }, data: { providerCreated: true } });
+}
+
+/**
+ * Creates or updates the provider config. The checkout page (paymentsUrl) can live on the
+ * merchant's own domain; the queryUrl always stays on the app's domain.
+ */
+export async function registerProvider(locationId: string, checkoutBase: string) {
   await api(locationId, 'POST', `/payments/custom-provider/provider?locationId=${locationId}`, {
     name: config.provider.name,
     description: config.provider.description,
     imageUrl: config.provider.imageUrl,
-    paymentsUrl: `${config.appUrl}/checkout`,
+    paymentsUrl: `${checkoutBase}/checkout`,
     queryUrl: `${config.appUrl}/api/query`,
     supportsSubscriptionSchedule: false,
   });
-  await db.installation.update({ where: { locationId }, data: { providerCreated: true } });
 }
 
 export function connectConfig(locationId: string, body: Record<string, { apiKey: string; publishableKey: string }>) {
