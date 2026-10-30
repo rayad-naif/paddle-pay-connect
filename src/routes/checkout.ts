@@ -28,6 +28,21 @@ checkoutRouter.post('/api/checkout/session', async (req, res) => {
     }
     const paddle = paddleFor(account);
     const contact = p.contact ?? {};
+    const amountMinor = toMinor(amount, currency);
+    const environment = account.mode === 'live' ? 'production' : 'sandbox';
+
+    // A retry (reloaded iframe, closed checkout) reuses the open Paddle transaction for the same
+    // GHL transaction instead of piling up duplicates.
+    const previous = await db.payment.findFirst({
+      where: { locationId: account.locationId, mode: account.mode, ghlTransactionId: String(p.transactionId) },
+      orderBy: { createdAt: 'desc' },
+    });
+    if (previous && previous.amountMinor === amountMinor && previous.currency === currency) {
+      const txn = await paddle.getTransaction(previous.paddleTransactionId).catch(() => null);
+      if (txn && ['draft', 'ready'].includes(txn.status)) {
+        return res.json({ transactionId: txn.id, environment, token: account.clientToken, email: null });
+      }
+    }
 
     let customerId: string | undefined;
     if (contact.email) {
@@ -60,7 +75,6 @@ checkoutRouter.post('/api/checkout/session', async (req, res) => {
       }
     }
 
-    const amountMinor = toMinor(amount, currency);
     const txn = await paddle.createTransaction({
       customer_id: customerId,
       collection_mode: 'automatic',
@@ -103,9 +117,10 @@ checkoutRouter.post('/api/checkout/session', async (req, res) => {
 
     res.json({
       transactionId: txn.id,
-      environment: account.mode === 'live' ? 'production' : 'sandbox',
+      environment,
       token: account.clientToken,
-      email: contact.email ?? null,
+      // The transaction already carries the customer; only prefill when it doesn't.
+      email: customerId ? null : contact.email ?? null,
     });
   } catch (e: any) {
     console.error('Checkout session failed', e);

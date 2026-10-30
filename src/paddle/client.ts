@@ -73,11 +73,35 @@ export class Paddle {
     return this.request('DELETE', `/notification-settings/${id}`);
   }
 
-  async findOrCreateCustomer(email: string, name?: string): Promise<string> {
-    const existing = await this.request<any[]>('GET', `/customers?email=${encodeURIComponent(email)}`);
-    if (existing.length > 0) return existing[0].id;
-    const created = await this.request<{ id: string }>('POST', '/customers', { email, name: name || undefined });
-    return created.id;
+  /**
+   * Returns an active Paddle customer for this email. Paddle matches emails case-insensitively
+   * and still counts archived customers, so a plain lookup can miss a customer that then makes
+   * POST /customers fail with customer_already_exists; that error names the existing id.
+   */
+  async findOrCreateCustomer(rawEmail: string, name?: string): Promise<string> {
+    const email = rawEmail.trim().toLowerCase();
+    const existing = await this.request<any[]>(
+      'GET',
+      `/customers?email=${encodeURIComponent(email)}&status=active,archived`,
+    );
+    const match = existing.find((c) => c.status === 'active') ?? existing[0];
+    if (match) return this.ensureActive(match.id, match.status);
+
+    try {
+      const created = await this.request<{ id: string }>('POST', '/customers', { email, name: name || undefined });
+      return created.id;
+    } catch (e) {
+      const conflict = e instanceof PaddleError && (e.code === 'customer_already_exists' || /conflicts with customer/i.test(e.message));
+      const id = conflict ? (e as PaddleError).message.match(/ctm_[a-z0-9]+/i)?.[0] : undefined;
+      if (!id) throw e;
+      const customer = await this.request<any>('GET', `/customers/${id}`);
+      return this.ensureActive(id, customer.status);
+    }
+  }
+
+  private async ensureActive(id: string, status: string): Promise<string> {
+    if (status !== 'active') await this.request('PATCH', `/customers/${id}`, { status: 'active' });
+    return id;
   }
 
   createTransaction(body: unknown) {

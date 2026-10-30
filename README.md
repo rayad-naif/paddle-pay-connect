@@ -10,7 +10,7 @@ client-side token, webhook destination and signing secret automatically.
 |---|---|---|
 | OAuth install | `GET /oauth/install`, `GET /oauth/callback` | Exchanges the code, stores tokens per location (handles agency bulk installs), registers the provider with `POST /payments/custom-provider/provider` |
 | App webhooks | `POST /webhooks/app` | On `UNINSTALL`, revokes the Paddle token, deletes the Paddle webhook destination and wipes stored keys |
-| Settings page | `GET /settings` + `/api/settings/*` | GHL custom page. Decrypts GHL SSO data, takes a Paddle API key, auto-detects sandbox/live, creates a client token + notification destination, then calls `POST /payments/custom-provider/connect` |
+| Dashboard / settings | `GET /`, `/settings`, `/dashboard` + `/api/settings/*` | GHL custom page and side-panel link. Shows 30-day volume, recent payments and a setup checklist. Decrypts GHL SSO data, takes a Paddle API key, auto-detects sandbox/live, creates a client token + notification destination, then calls `POST /payments/custom-provider/connect` |
 | Checkout iframe | `GET /checkout` + `POST /api/checkout/session` | Receives `payment_initiate_props`, creates a Paddle transaction with a non-catalog price for the exact amount, opens Paddle.js inline checkout, replies with `custom_element_success_response { chargeId }` |
 | queryUrl | `POST /api/query` | `verify` (checks Paddle transaction status), `refund` (full or partial Paddle adjustment), `list_payment_methods`; `charge_payment` / `create_subscription` return "not supported" |
 | Paddle webhooks | `POST /webhooks/paddle/:accountId` | Verifies `Paddle-Signature`, de-duplicates, forwards `payment.captured`, `subscription.active/trialing/updated/charged` to GHL |
@@ -46,7 +46,7 @@ In marketplace.gohighlevel.com → My Apps → Create App:
 - **Redirect URL:** `{APP_URL}/oauth/callback`
 - **Webhook URL:** `{APP_URL}/webhooks/app` (install/uninstall events are sent here automatically).
   GHL rejects any URL containing "ghl" or "highlevel", including the domain.
-- **Custom page / settings URL:** `{APP_URL}/settings`
+- **Custom page / settings URL:** `{APP_URL}/settings` (the bare `{APP_URL}` also serves the dashboard)
 - Copy **Client ID**, **Client Secret** and **Shared Secret (SSO key)** into `.env`. Set `GHL_APP_ID`.
 - Optional: put GHL's webhook public key in `GHL_WEBHOOK_PUBLIC_KEY` to verify `x-wh-signature`.
 
@@ -86,5 +86,7 @@ In marketplace.gohighlevel.com → My Apps → Create App:
   payload; this app sends `ghlSubscriptionId` and `subscriptionSnapshot`. Verify in GHL sandbox.
 - **Connect config with only one mode:** GHL's docs mark both `live` and `test` as required; the app
   sends whichever modes are connected. If GHL rejects a single mode, connect both.
+- **Checkout spins, then shows "Paddle checkout did not load":** the merchant has no default payment
+  link on an approved domain in Paddle → Checkout settings.
 - **Paddle.js inside GHL's iframe:** the checkout page itself is nested in GHL's iframe. If a
   merchant's checkout fails to render, confirm the app domain is approved in their Paddle account.

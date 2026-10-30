@@ -1,8 +1,9 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "rewrites": [
-    { "source": "/checkout", "destination": "/checkout.html" },
-    { "source": "/settings", "destination": "/settings.html" }
+    { "source": "/checkout/?", "destination": "/checkout.html" },
+    { "source": "/", "destination": "/settings.html" },
+    { "source": "/(settings|dashboard|app)/?", "destination": "/settings.html" }
   ],
   "headers": [
     {
