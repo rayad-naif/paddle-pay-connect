@@ -117,8 +117,14 @@ export class Paddle {
       const created = await this.request<{ id: string }>('POST', '/customers', { email, name: name || undefined });
       return created.id;
     } catch (e) {
-      const conflict = e instanceof PaddleError && (e.code === 'customer_already_exists' || /conflicts with customer/i.test(e.message));
-      const id = conflict ? (e as PaddleError).message.match(/ctm_[a-z0-9]+/i)?.[0] : undefined;
+      const conflict = e instanceof PaddleError && (e.code === 'customer_already_exists' || /conflicts with customer|already exist/i.test(e.message));
+      if (!conflict) throw e;
+      // The error usually names the existing customer; otherwise find them by a full-text search.
+      let id = (e as PaddleError).message.match(/ctm_[a-z0-9]+/i)?.[0];
+      if (!id) {
+        const found = await this.request<any[]>('GET', `/customers?search=${encodeURIComponent(email)}&status=active,archived`);
+        id = found.find((c) => String(c.email).toLowerCase() === email)?.id;
+      }
       if (!id) throw e;
       const customer = await this.request<any>('GET', `/customers/${id}`);
       return this.ensureActive(id, customer.status);

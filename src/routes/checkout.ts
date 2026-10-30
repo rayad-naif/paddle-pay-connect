@@ -46,8 +46,13 @@ checkoutRouter.post('/api/checkout/session', async (req, res) => {
 
     let customerId: string | undefined;
     if (contact.email) {
-      customerId = await paddle.findOrCreateCustomer(contact.email, contact.name);
-      if (contact.id) {
+      // Linking the Paddle customer is best effort: if it fails, checkout still opens with the
+      // email prefilled and Paddle attaches the customer itself when the buyer pays.
+      customerId = await paddle.findOrCreateCustomer(contact.email, contact.name).catch((e) => {
+        console.warn('Could not link Paddle customer, continuing without it', e.message);
+        return undefined;
+      });
+      if (customerId && contact.id) {
         await db.customerMap.upsert({
           where: { locationId_mode_ghlContactId: { locationId: account.locationId, mode: account.mode, ghlContactId: contact.id } },
           create: { locationId: account.locationId, mode: account.mode, ghlContactId: contact.id, paddleCustomerId: customerId },

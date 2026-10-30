@@ -369,7 +369,7 @@ docsRouter.get('/docs', (_req, res) => {
     <dt>Do I need a checkout domain for sandbox?</dt><dd>No. Sandbox works on the app’s own domain. You need your own domain for live.</dd>
     <dt>Which currencies are supported?</dt><dd>Any currency Paddle supports for your account. The checkout charges the currency set on the CRM product.</dd>
     <dt>Can customers use PayPal, Apple Pay or Google Pay?</dt><dd>Yes, if they’re turned on in your Paddle account. Apple Pay also requires Paddle to verify your checkout domain for Apple Pay.</dd>
-    <dt>What does it cost?</dt><dd>See <a href="/pricing">pricing</a>. Paddle charges its own fees per transaction, separately.</dd>
+    <dt>What does it cost?</dt><dd>A one-time payment of $997 for lifetime access, with a 14-day money-back guarantee. See <a href="/pricing">pricing</a>. Paddle charges its own fees per transaction, separately.</dd>
   </dl>
 
   <h2 id="support">Support</h2>
