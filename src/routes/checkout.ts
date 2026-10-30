@@ -40,7 +40,7 @@ checkoutRouter.post('/api/checkout/session', async (req, res) => {
     if (previous && previous.amountMinor === amountMinor && previous.currency === currency) {
       const txn = await paddle.getTransaction(previous.paddleTransactionId).catch(() => null);
       if (txn && ['draft', 'ready'].includes(txn.status)) {
-        return res.json({ transactionId: txn.id, environment, token: account.clientToken, email: null });
+        return res.json({ transactionId: txn.id, environment, token: account.clientToken, email: null, amount, currency });
       }
     }
 
@@ -70,7 +70,7 @@ checkoutRouter.post('/api/checkout/session', async (req, res) => {
           if (Number(price.trialPeriod) > 0) trialPeriod = { interval: 'day', frequency: Number(price.trialPeriod) };
         }
       } catch (e: any) {
-        if (p.subscriptionId) throw new Error(`Could not load the recurring price from HighLevel: ${e.message}`);
+        if (p.subscriptionId) throw new Error(`Could not load the recurring price from the CRM: ${e.message}`);
         console.warn('getPrice failed, continuing as one-time payment', e.message);
       }
     }
@@ -89,7 +89,7 @@ checkoutRouter.post('/api/checkout/session', async (req, res) => {
           quantity: 1,
           price: {
             name: productName,
-            description: `HighLevel order ${p.orderId ?? p.transactionId}`,
+            description: `Order ${p.orderId ?? p.transactionId}`,
             unit_price: { amount: String(amountMinor), currency_code: currency },
             billing_cycle: billingCycle,
             trial_period: trialPeriod,
@@ -121,6 +121,11 @@ checkoutRouter.post('/api/checkout/session', async (req, res) => {
       token: account.clientToken,
       // The transaction already carries the customer; only prefill when it doesn't.
       email: customerId ? null : contact.email ?? null,
+      // Shown in the order summary until Paddle's own totals (with tax) arrive.
+      productName,
+      amount,
+      currency,
+      billingCycle: billingCycle ?? null,
     });
   } catch (e: any) {
     console.error('Checkout session failed', e);

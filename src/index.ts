@@ -7,6 +7,7 @@ import { checkoutRouter } from './routes/checkout';
 import { queryRouter } from './routes/query';
 import { paddleWebhookRouter } from './routes/paddleWebhooks';
 import { siteRouter } from './routes/site';
+import { docsRouter } from './routes/docs';
 
 const app = express();
 app.disable('x-powered-by');
@@ -38,6 +39,7 @@ app.use(express.static(publicDir));
 app.get('/health', (_req, res) => res.json({ ok: true }));
 
 app.use(siteRouter);
+app.use(docsRouter);
 app.use(oauthRouter);
 app.use(settingsRouter);
 app.use(checkoutRouter);
@@ -56,7 +58,7 @@ app.use((req, res) => {
 // On Vercel the exported app runs as a function; locally we listen on a port.
 if (!process.env.VERCEL) {
   app.listen(config.port, () => {
-    console.log(`GHL × Paddle provider listening on :${config.port}`);
+    console.log(`Paddle Pay listening on :${config.port}`);
     console.log(`Install URL: ${config.appUrl}/oauth/install`);
   });
 }

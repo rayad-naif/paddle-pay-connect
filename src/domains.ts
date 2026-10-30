@@ -110,7 +110,7 @@ export async function setDomain(locationId: string, rawHost: string, rawWebsite:
   const hostname = normalizeHostname(rawHost);
   const websiteUrl = normalizeWebsite(rawWebsite, hostname);
   const taken = await db.checkoutDomain.findUnique({ where: { hostname } });
-  if (taken && taken.locationId !== locationId) throw new UserError('That domain is already used by another sub-account.');
+  if (taken && taken.locationId !== locationId) throw new UserError('That domain is already used by another account.');
 
   const previous = await db.checkoutDomain.findUnique({ where: { locationId } });
   if (previous && previous.hostname !== hostname) await removeDomain(locationId);

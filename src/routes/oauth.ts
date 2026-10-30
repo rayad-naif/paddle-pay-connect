@@ -24,8 +24,9 @@ oauthRouter.get('/oauth/callback', async (req, res) => {
     for (const locationId of locations) {
       await ghl.ensureProvider(locationId).catch((e) => console.error(`ensureProvider ${locationId}`, e.message));
     }
-    res.send(page('Installed', `<p>Paddle is installed for ${locations.length} sub-account(s).</p>
-      <p>Next: open <b>Payments &gt; Integrations</b> in HighLevel, open <b>${config.provider.name}</b>, paste your Paddle API key, then click <b>Set as default</b>.</p>`));
+    res.send(page('Installed', `<p>${escapeHtml(config.provider.name)} is installed for ${locations.length} account${locations.length === 1 ? '' : 's'}.</p>
+      <p>Next: in your CRM open <b>Payments &gt; Integrations</b>, open <b>${escapeHtml(config.provider.name)}</b>, paste your Paddle API key, then click <b>Set as default</b>.</p>
+      <p>Full instructions: <a href="/docs">setup guide</a>.</p>`));
   } catch (e: any) {
     console.error('OAuth callback failed', e);
     res.status(500).send(page('Install failed', `<p>${escapeHtml(e.message)}</p>`));

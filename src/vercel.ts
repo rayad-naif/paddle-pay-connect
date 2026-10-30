@@ -13,7 +13,10 @@ export interface DnsRecord {
 }
 
 async function api<T = any>(method: string, path: string, body?: unknown): Promise<T> {
-  if (!config.vercel.token) throw new VercelError(500, 'not_configured', 'Custom checkout domains are not set up on this server yet (VERCEL_API_TOKEN is missing).');
+  if (!config.vercel.token) {
+    console.error('Checkout domains need VERCEL_API_TOKEN (and VERCEL_TEAM_ID) to be set.');
+    throw new VercelError(500, 'not_configured', 'Custom checkout domains are not available yet. Contact support.');
+  }
   const url = new URL(`https://api.vercel.com${path}`);
   if (config.vercel.teamId) url.searchParams.set('teamId', config.vercel.teamId);
   const res = await fetch(url, {
@@ -37,7 +40,7 @@ export async function addDomain(name: string) {
     return await api('POST', `/v10/projects/${project()}/domains`, { name });
   } catch (e) {
     if (e instanceof VercelError && e.code === 'domain_already_in_use') {
-      throw new VercelError(409, e.code, 'That domain is already connected to another Vercel project. Remove it there first.');
+      throw new VercelError(409, e.code, 'That domain is already connected to another website or hosting account. Remove it there first, then try again.');
     }
     if (e instanceof VercelError && e.code === 'domain_already_exists') return getDomain(name);
     throw e;
