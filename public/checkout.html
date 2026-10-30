@@ -67,6 +67,24 @@
   cancelBtn.addEventListener('click', () => toParent({ type: 'custom_element_close_response' }));
   retryBtn.addEventListener('click', () => props && start(props));
 
+  // Sends Paddle's raw error event to the server log so failures can be diagnosed.
+  function report(e) {
+    try {
+      fetch('/api/checkout/log', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ transactionId: session && session.transactionId, event: e }),
+      }).catch(() => {});
+    } catch {}
+  }
+  function hintFor(code, detail) {
+    const text = `${code || ''} ${detail || ''}`.toLowerCase();
+    if (/domain|approv|origin|forbidden|default.*(link|url)|checkout.*(url|link)/.test(text)) {
+      return 'In Paddle, approve the checkout website (Checkout → Website approval) and set a default payment link on that domain (Checkout → Checkout settings).';
+    }
+    return '';
+  }
+
   function onPaddleEvent(e) {
     if (e.name === 'checkout.loaded') {
       clearTimeout(loadTimer);
@@ -78,7 +96,12 @@
       setStatus('Payment received. Finishing up…');
       toParent({ type: 'custom_element_success_response', chargeId: (e.data && e.data.transaction_id) || session.transactionId });
     }
-    if (e.name === 'checkout.error') fail((e.error && e.error.detail) || (e.data && e.data.error && e.data.error.detail) || 'Payment failed. Please try again.');
+    if (e.name === 'checkout.error' || e.name === 'checkout.payment.failed') {
+      report(e);
+      const err = e.error || (e.data && e.data.error) || e;
+      const detail = err.detail || err.message || 'Payment failed. Please try again.';
+      fail(err.code ? `${detail} (${err.code})` : detail, hintFor(err.code, detail));
+    }
     if (e.name === 'checkout.closed') toParent({ type: 'custom_element_close_response' });
   }
 
