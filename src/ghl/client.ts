@@ -36,7 +36,9 @@ export function authorizeUrl(): string {
     client_id: config.ghl.clientId,
     scope: config.ghl.scopes.join(' '),
   });
-  return `https://marketplace.gohighlevel.com/oauth/chooselocation?${params}`;
+  // Matches the "Install link" GHL shows for the app; version_id lets draft versions install.
+  if (config.ghl.appId) params.set('version_id', config.ghl.appId);
+  return `https://marketplace.gohighlevel.com/v2/oauth/chooselocation?${params}`;
 }
 
 export function exchangeCode(code: string) {
