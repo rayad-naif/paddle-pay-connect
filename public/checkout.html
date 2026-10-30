@@ -6,12 +6,31 @@
   <title>Paddle Checkout</title>
   <script src="https://cdn.paddle.com/paddle/v2/paddle.js"></script>
   <style>
-    :root { color-scheme: light; --muted:#6b7280; --err:#b91c1c; --accent:#4338ca; }
-    body { margin: 0; font-family: system-ui, -apple-system, Segoe UI, sans-serif; background: transparent; color: #1f2937; }
-    #status { display: flex; flex-direction: column; align-items: center; gap: 12px; padding: 32px 16px; text-align: center; font-size: 14px; color: var(--muted); }
+    :root { color-scheme: light; --bg:#ffffff; --soft:#f6f7fb; --line:#e5e7eb; --text:#0f172a; --muted:#64748b; --err:#b91c1c; --accent:#4338ca; --ok:#15803d; }
+    * { box-sizing: border-box; }
+    html, body { background: var(--bg); }
+    body { margin: 0; min-height: 100vh; font-family: system-ui, -apple-system, Segoe UI, sans-serif; color: var(--text); font-size: 14px; }
+    .page { max-width: 980px; margin: 0 auto; padding: 20px 16px 8px; }
+    .top { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 16px; }
+    .secure { display: inline-flex; align-items: center; gap: 6px; font-weight: 600; font-size: 13px; color: var(--muted); }
+    .secure svg { width: 14px; height: 14px; }
+    .pill { font-size: 11px; font-weight: 600; padding: 2px 8px; border-radius: 999px; background: #fef3c7; color: #b45309; }
+    .layout { display: grid; gap: 24px; }
+    @media (min-width: 760px) { .layout.has-summary { grid-template-columns: minmax(240px, 340px) 1fr; align-items: start; } }
+    .summary { background: var(--soft); border: 1px solid var(--line); border-radius: 12px; padding: 18px; }
+    .summary h2 { font-size: 12px; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); margin: 0 0 12px; }
+    .total-big { font-size: 28px; font-weight: 700; font-variant-numeric: tabular-nums; margin: 0 0 4px; }
+    .recurring { color: var(--muted); font-size: 13px; margin-bottom: 14px; }
+    .line { display: flex; justify-content: space-between; gap: 12px; padding: 8px 0; border-top: 1px solid var(--line); font-variant-numeric: tabular-nums; }
+    .line.item { border-top: 0; padding-top: 0; }
+    .line .name { color: var(--text); }
+    .line.muted { color: var(--muted); }
+    .line.total { font-weight: 700; }
+    .mor { margin-top: 14px; color: var(--muted); font-size: 12px; line-height: 1.5; }
+    #status { display: flex; flex-direction: column; align-items: center; gap: 12px; padding: 40px 16px; text-align: center; color: var(--muted); }
     #status[hidden] { display: none; }
     #status.error { color: var(--err); }
-    .spinner { width: 28px; height: 28px; border: 3px solid #e5e7eb; border-top-color: var(--accent); border-radius: 50%; animation: spin .8s linear infinite; }
+    .spinner { width: 28px; height: 28px; border: 3px solid var(--line); border-top-color: var(--accent); border-radius: 50%; animation: spin .8s linear infinite; }
     #status.error .spinner { display: none; }
     @keyframes spin { to { transform: rotate(360deg); } }
     .hint { color: var(--muted); font-size: 12px; max-width: 420px; }
@@ -21,13 +40,31 @@
     button { font: inherit; font-size: 13px; cursor: pointer; }
     #retry { display: none; padding: 8px 14px; border-radius: 8px; border: 1px solid var(--accent); background: var(--accent); color: #fff; }
     #cancel { display: none; margin: 8px auto 16px; background: none; border: 0; color: var(--muted); text-decoration: underline; }
+    [hidden] { display: none !important; }
   </style>
 </head>
 <body>
-  <div id="status"><div class="spinner"></div><div id="statusText">Loading secure checkout…</div><div id="hint" class="hint"></div>
-    <div class="actions"><button id="retry" type="button">Try again</button></div></div>
-  <div class="checkout-container"></div>
-  <button id="cancel" type="button">Cancel</button>
+<div class="page">
+  <div class="top">
+    <span class="secure"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="11" width="16" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>Secure checkout</span>
+    <span id="testPill" class="pill" hidden>Test mode</span>
+  </div>
+  <div class="layout" id="layout">
+    <aside class="summary" id="summary" hidden>
+      <h2>Order summary</h2>
+      <div class="total-big" id="sumTotal"></div>
+      <div class="recurring" id="sumRecurring" hidden></div>
+      <div id="sumLines"></div>
+      <div class="mor">Payment is processed by Paddle.com, the Merchant of Record for this order. Sales tax or VAT is calculated from your location.</div>
+    </aside>
+    <main>
+      <div id="status"><div class="spinner"></div><div id="statusText">Loading secure checkout…</div><div id="hint" class="hint"></div>
+        <div class="actions"><button id="retry" type="button">Try again</button></div></div>
+      <div class="checkout-container"></div>
+      <button id="cancel" type="button">Cancel</button>
+    </main>
+  </div>
+</div>
 
 <script>
   // Talks to the HighLevel checkout that embeds this page (see GHL Custom Payment Provider docs).
@@ -85,7 +122,60 @@
     return '';
   }
 
+  // ---- order summary (from the session first, then Paddle's live totals incl. tax) ----
+  const PERIOD = { day: 'day', week: 'week', month: 'month', year: 'year' };
+  function money(amount, currency) {
+    try { return new Intl.NumberFormat(undefined, { style: 'currency', currency }).format(Number(amount)); }
+    catch { return `${Number(amount).toFixed(2)} ${currency}`; }
+  }
+  function every(cycle) {
+    if (!cycle || !PERIOD[cycle.interval]) return '';
+    const n = Number(cycle.frequency || 1);
+    return n === 1 ? `per ${PERIOD[cycle.interval]}` : `every ${n} ${PERIOD[cycle.interval]}s`;
+  }
+  function line(name, value, cls) {
+    const row = document.createElement('div');
+    row.className = 'line ' + (cls || '');
+    const a = document.createElement('span'); a.className = 'name'; a.textContent = name;
+    const b = document.createElement('span'); b.textContent = value;
+    row.append(a, b);
+    return row;
+  }
+  function renderSummary({ items, subtotal, tax, discount, total, currency, recurringTotal, cycle }) {
+    document.getElementById('summary').hidden = false;
+    document.getElementById('layout').classList.add('has-summary');
+    document.getElementById('sumTotal').textContent = money(total, currency);
+    const rec = document.getElementById('sumRecurring');
+    rec.hidden = !cycle;
+    if (cycle) rec.textContent = `then ${money(recurringTotal ?? total, currency)} ${every(cycle)}`;
+    const lines = document.getElementById('sumLines');
+    lines.replaceChildren(
+      ...items.map((it, i) => line(it.quantity > 1 ? `${it.name} × ${it.quantity}` : it.name, money(it.amount, currency), i === 0 ? 'item' : '')),
+      ...(subtotal != null && (tax || discount) ? [line('Subtotal', money(subtotal, currency), 'muted')] : []),
+      ...(discount ? [line('Discount', '−' + money(discount, currency), 'muted')] : []),
+      ...(tax != null ? [line('Tax', money(tax, currency), 'muted')] : []),
+      line('Total due today', money(total, currency), 'total'),
+    );
+  }
+  function summaryFromSession(s) {
+    if (!s || s.amount == null) return;
+    renderSummary({ items: [{ name: s.productName || 'Payment', quantity: 1, amount: s.amount }], total: s.amount, currency: s.currency,
+      cycle: s.billingCycle, recurringTotal: s.amount });
+  }
+  function summaryFromPaddle(d) {
+    if (!d || !d.totals || !d.currency_code) return;
+    const items = (d.items || []).map((it) => ({
+      name: it.price_name || (it.product && it.product.name) || 'Item',
+      quantity: it.quantity || 1,
+      amount: it.totals ? it.totals.subtotal : 0,
+    }));
+    const cycle = (d.items || []).map((it) => it.billing_cycle).find(Boolean);
+    renderSummary({ items, subtotal: d.totals.subtotal, tax: d.totals.tax, discount: d.totals.discount, total: d.totals.total,
+      currency: d.currency_code, cycle, recurringTotal: d.recurring_totals ? d.recurring_totals.total : undefined });
+  }
+
   function onPaddleEvent(e) {
+    if (e.data && e.data.totals) summaryFromPaddle(e.data);
     if (e.name === 'checkout.loaded') {
       clearTimeout(loadTimer);
       busy = false;
@@ -108,6 +198,8 @@
 
   // Initializes Paddle.js (once per page) and opens the inline checkout for `session`.
   function openCheckout() {
+    document.getElementById('testPill').hidden = session.environment !== 'sandbox';
+    summaryFromSession(session);
     if (!window.Paddle) throw new Error('Paddle.js could not be loaded. Check your connection or ad blocker.');
     if (!paddleToken) {
       if (session.environment === 'sandbox') Paddle.Environment.set('sandbox');

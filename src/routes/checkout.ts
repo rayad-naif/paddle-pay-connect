@@ -40,7 +40,7 @@ checkoutRouter.post('/api/checkout/session', async (req, res) => {
     if (previous && previous.amountMinor === amountMinor && previous.currency === currency) {
       const txn = await paddle.getTransaction(previous.paddleTransactionId).catch(() => null);
       if (txn && ['draft', 'ready'].includes(txn.status)) {
-        return res.json({ transactionId: txn.id, environment, token: account.clientToken, email: null });
+        return res.json({ transactionId: txn.id, environment, token: account.clientToken, email: null, amount, currency });
       }
     }
 
@@ -121,6 +121,11 @@ checkoutRouter.post('/api/checkout/session', async (req, res) => {
       token: account.clientToken,
       // The transaction already carries the customer; only prefill when it doesn't.
       email: customerId ? null : contact.email ?? null,
+      // Shown in the order summary until Paddle's own totals (with tax) arrive.
+      productName,
+      amount,
+      currency,
+      billingCycle: billingCycle ?? null,
     });
   } catch (e: any) {
     console.error('Checkout session failed', e);
