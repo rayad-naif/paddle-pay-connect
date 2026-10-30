@@ -1,0 +1,83 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+// Postgres (e.g. Neon via the Vercel Marketplace). Serverless needs a pooled URL.
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DATABASE_URL_UNPOOLED")
+}
+
+/// One row per GHL sub-account (location) that installed the app.
+model Installation {
+  locationId      String          @id
+  companyId       String?
+  accessTokenEnc  String
+  refreshTokenEnc String
+  expiresAt       DateTime
+  scope           String?
+  providerCreated Boolean         @default(false)
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+  paddleAccounts  PaddleAccount[]
+}
+
+/// A Paddle connection for one location in one mode ("test" = sandbox, "live").
+model PaddleAccount {
+  id                    String       @id
+  locationId            String
+  mode                  String
+  apiKeyEnc             String
+  clientToken           String       @unique
+  clientTokenId         String
+  notificationSettingId String
+  webhookSecretEnc      String
+  ghlApiKeyHash         String       @unique
+  ghlApiKeyEnc          String
+  createdAt             DateTime     @default(now())
+  updatedAt             DateTime     @updatedAt
+  installation          Installation @relation(fields: [locationId], references: [locationId], onDelete: Cascade)
+
+  @@unique([locationId, mode])
+}
+
+/// Maps a GHL transaction to the Paddle transaction that pays for it.
+model Payment {
+  id                   String   @id @default(cuid())
+  locationId           String
+  mode                 String
+  ghlTransactionId     String
+  ghlOrderId           String?
+  ghlSubscriptionId    String?
+  ghlContactId         String?
+  paddleTransactionId  String   @unique
+  paddleSubscriptionId String?
+  paddleCustomerId     String?
+  amountMinor          Int
+  currency             String
+  status               String
+  subscriptionStatus   String?
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+
+  @@index([ghlTransactionId])
+  @@index([paddleSubscriptionId])
+}
+
+/// GHL contact -> Paddle customer, per location and mode.
+model CustomerMap {
+  id               String @id @default(cuid())
+  locationId       String
+  mode             String
+  ghlContactId     String
+  paddleCustomerId String
+
+  @@unique([locationId, mode, ghlContactId])
+}
+
+/// Processed Paddle webhook event IDs (idempotency).
+model WebhookEvent {
+  id         String   @id
+  receivedAt DateTime @default(now())
+}

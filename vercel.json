@@ -1,0 +1,13 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "rewrites": [
+    { "source": "/checkout", "destination": "/checkout.html" },
+    { "source": "/settings", "destination": "/settings.html" }
+  ],
+  "headers": [
+    {
+      "source": "/(.*)",
+      "headers": [{ "key": "Content-Security-Policy", "value": "frame-ancestors *" }]
+    }
+  ]
+}

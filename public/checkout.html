@@ -1,0 +1,101 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Paddle Checkout</title>
+  <script src="https://cdn.paddle.com/paddle/v2/paddle.js"></script>
+  <style>
+    :root { color-scheme: light; }
+    body { margin: 0; font-family: system-ui, -apple-system, Segoe UI, sans-serif; background: transparent; color: #1f2937; }
+    #status { padding: 16px; text-align: center; font-size: 14px; color: #6b7280; }
+    #status.error { color: #b91c1c; }
+    .checkout-container { min-height: 450px; }
+    #cancel { display: none; margin: 8px auto 16px; background: none; border: 0; color: #6b7280; text-decoration: underline; cursor: pointer; font-size: 13px; }
+  </style>
+</head>
+<body>
+  <div id="status">Loading secure checkout…</div>
+  <div class="checkout-container"></div>
+  <button id="cancel" type="button">Cancel</button>
+
+<script>
+  // Talks to the HighLevel checkout that embeds this page (see GHL Custom Payment Provider docs).
+  const statusEl = document.getElementById('status');
+  const cancelBtn = document.getElementById('cancel');
+  let started = false;
+
+  function toParent(msg) {
+    window.parent.postMessage(JSON.stringify(msg), '*');
+  }
+  function setStatus(text, isError) {
+    statusEl.textContent = text;
+    statusEl.className = isError ? 'error' : '';
+    statusEl.style.display = text ? 'block' : 'none';
+  }
+  function fail(description) {
+    setStatus(description, true);
+    toParent({ type: 'custom_element_error_response', error: { description } });
+  }
+
+  cancelBtn.addEventListener('click', () => toParent({ type: 'custom_element_close_response' }));
+
+  window.addEventListener('message', async (event) => {
+    let data = event.data;
+    if (typeof data === 'string') {
+      try { data = JSON.parse(data); } catch { return; }
+    }
+    if (!data || typeof data !== 'object') return;
+
+    if (data.type === 'setup_initiate_props') {
+      fail('Saving a card without a payment is not supported by Paddle.');
+      return;
+    }
+    if (data.type !== 'payment_initiate_props' || started) return;
+    started = true;
+
+    try {
+      const res = await fetch('/api/checkout/session', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data),
+      });
+      const session = await res.json();
+      if (!res.ok) throw new Error(session.error || 'Could not start checkout');
+
+      if (session.environment === 'sandbox') Paddle.Environment.set('sandbox');
+      Paddle.Initialize({
+        token: session.token,
+        eventCallback: (e) => {
+          if (e.name === 'checkout.loaded') { setStatus(''); cancelBtn.style.display = 'block'; }
+          if (e.name === 'checkout.completed') {
+            toParent({ type: 'custom_element_success_response', chargeId: e.data.transaction_id || session.transactionId });
+          }
+          if (e.name === 'checkout.error') fail((e.error && e.error.detail) || 'Payment failed. Please try again.');
+          if (e.name === 'checkout.closed') toParent({ type: 'custom_element_close_response' });
+        },
+      });
+      Paddle.Checkout.open({
+        transactionId: session.transactionId,
+        customer: session.email ? { email: session.email } : undefined,
+        settings: {
+          displayMode: 'inline',
+          variant: 'one-page',
+          frameTarget: 'checkout-container',
+          frameInitialHeight: 450,
+          frameStyle: 'width:100%; min-width:312px; background-color:transparent; border:none;',
+          showAddDiscounts: false,
+          allowLogout: false,
+        },
+      });
+    } catch (err) {
+      started = false;
+      fail(err.message);
+    }
+  });
+
+  // Tell HighLevel we're ready to receive payment_initiate_props.
+  toParent({ type: 'custom_provider_ready', loaded: true, addCardOnFileSupported: false });
+</script>
+</body>
+</html>

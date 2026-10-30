@@ -1,0 +1,137 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Paddle Settings</title>
+  <style>
+    :root { --bg:#f8fafc; --card:#fff; --text:#0f172a; --muted:#64748b; --line:#e2e8f0; --accent:#2563eb; --ok:#15803d; --err:#b91c1c; }
+    * { box-sizing: border-box; }
+    body { margin:0; background:var(--bg); color:var(--text); font-family:system-ui,-apple-system,Segoe UI,sans-serif; }
+    main { max-width:720px; margin:0 auto; padding:24px 16px; }
+    h1 { font-size:20px; margin:0 0 4px; }
+    p.sub { color:var(--muted); margin:0 0 20px; font-size:14px; }
+    .card { background:var(--card); border:1px solid var(--line); border-radius:10px; padding:18px; margin-bottom:16px; }
+    .row { display:flex; justify-content:space-between; align-items:center; gap:12px; flex-wrap:wrap; }
+    .badge { font-size:12px; padding:3px 8px; border-radius:999px; background:#f1f5f9; color:var(--muted); }
+    .badge.on { background:#dcfce7; color:var(--ok); }
+    input { width:100%; padding:10px 12px; border:1px solid var(--line); border-radius:8px; font:inherit; margin:12px 0 10px; }
+    button { padding:9px 14px; border-radius:8px; border:1px solid var(--accent); background:var(--accent); color:#fff; font:inherit; cursor:pointer; }
+    button.secondary { background:#fff; color:var(--text); border-color:var(--line); }
+    button:disabled { opacity:.6; cursor:default; }
+    .msg { font-size:13px; margin-top:8px; }
+    .msg.err { color:var(--err); } .msg.ok { color:var(--ok); }
+    details { font-size:14px; color:var(--muted); }
+    details li { margin:4px 0; }
+    code { background:#f1f5f9; padding:1px 5px; border-radius:4px; font-size:12px; }
+    #loading { color:var(--muted); }
+  </style>
+</head>
+<body>
+<main>
+  <h1>Connect Paddle</h1>
+  <p class="sub">Paste a Paddle API key. Webhooks, signing secrets and checkout tokens are set up automatically.</p>
+  <div id="loading">Verifying your HighLevel session…</div>
+  <div id="app" hidden></div>
+
+  <details class="card">
+    <summary><b>How to create the API key</b></summary>
+    <ol>
+      <li>In Paddle, go to <b>Developer tools → Authentication → API keys → New API key</b>.</li>
+      <li>Grant these permissions:
+        <code>customer.read</code> <code>customer.write</code> <code>transaction.read</code> <code>transaction.write</code>
+        <code>adjustment.read</code> <code>adjustment.write</code> <code>subscription.read</code>
+        <code>payment_method.read</code> <code>notification_setting.read</code> <code>notification_setting.write</code>
+        <code>client_token.write</code>.</li>
+      <li>Copy the key and paste it here. Sandbox keys start with <code>pdl_sdbx_</code>, live keys with <code>pdl_live_</code>.</li>
+      <li>In Paddle <b>Checkout → Checkout settings</b>, make sure a default payment link is set on an approved domain.</li>
+      <li>Back in HighLevel, open <b>Payments → Integrations</b> and set this provider as default.</li>
+    </ol>
+  </details>
+</main>
+
+<script>
+  const app = document.getElementById('app');
+  const loading = document.getElementById('loading');
+  let token = '';
+
+  function api(path, body) {
+    return fetch(path, {
+      method: body ? 'POST' : 'GET',
+      headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token },
+      body: body ? JSON.stringify(body) : undefined,
+    }).then(async (r) => {
+      const json = await r.json().catch(() => ({}));
+      if (!r.ok) throw new Error(json.error || 'Request failed');
+      return json;
+    });
+  }
+
+  function card(mode, info) {
+    const label = mode === 'live' ? 'Live' : 'Sandbox (test mode)';
+    const el = document.createElement('div');
+    el.className = 'card';
+    el.innerHTML = `
+      <div class="row">
+        <b>${label}</b>
+        <span class="badge ${info.connected ? 'on' : ''}">${info.connected ? 'Connected' : 'Not connected'}</span>
+      </div>
+      <input type="password" autocomplete="off" placeholder="${mode === 'live' ? 'pdl_live_apikey_…' : 'pdl_sdbx_apikey_…'}">
+      <div class="row">
+        <button class="connect">${info.connected ? 'Reconnect' : 'Connect'}</button>
+        ${info.connected ? '<button class="secondary disconnect">Disconnect</button>' : ''}
+      </div>
+      <div class="msg"></div>`;
+    const input = el.querySelector('input');
+    const msg = el.querySelector('.msg');
+    const setMsg = (t, ok) => { msg.textContent = t; msg.className = 'msg ' + (ok ? 'ok' : 'err'); };
+
+    el.querySelector('.connect').onclick = async (e) => {
+      const key = input.value.trim();
+      const expected = mode === 'live' ? 'pdl_live_' : 'pdl_sdbx_';
+      if (!key.startsWith(expected)) return setMsg(`This field needs a ${label.toLowerCase()} key (starts with ${expected}).`);
+      e.target.disabled = true; setMsg('Connecting to Paddle…', true);
+      try { await api('/api/settings/connect', { apiKey: key }); await render(); }
+      catch (err) { setMsg(err.message); e.target.disabled = false; }
+    };
+    const dc = el.querySelector('.disconnect');
+    if (dc) dc.onclick = async () => {
+      if (!confirm(`Disconnect ${label}? Payments in this mode will stop working.`)) return;
+      dc.disabled = true;
+      try { await api('/api/settings/disconnect', { mode }); await render(); }
+      catch (err) { setMsg(err.message); dc.disabled = false; }
+    };
+    return el;
+  }
+
+  async function render() {
+    const status = await api('/api/settings');
+    app.replaceChildren(card('test', status.test), card('live', status.live));
+    app.hidden = false;
+    loading.hidden = true;
+  }
+
+  // HighLevel custom pages: ask the parent for encrypted user data, then trade it for a session.
+  window.addEventListener('message', async ({ data }) => {
+    if (!data || data.message !== 'REQUEST_USER_DATA_RESPONSE') return;
+    try {
+      const res = await fetch('/api/settings/session', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ encrypted: data.payload }),
+      });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error);
+      token = json.token;
+      await render();
+    } catch (err) {
+      loading.textContent = err.message || 'Could not load settings.';
+    }
+  });
+  window.parent.postMessage({ message: 'REQUEST_USER_DATA' }, '*');
+  setTimeout(() => {
+    if (!token) loading.textContent = 'Open this page from inside HighLevel (Payments → Integrations → Paddle).';
+  }, 8000);
+</script>
+</body>
+</html>
