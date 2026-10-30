@@ -72,10 +72,10 @@ In marketplace.gohighlevel.com → My Apps → Create App:
 
 ## Deploying to Vercel
 1. Import the GitHub repo in Vercel (framework is detected as Express from `src/index.ts`).
-2. In the project, **Storage → Neon (Postgres)** to create a database; it sets `DATABASE_URL` and `DATABASE_URL_UNPOOLED`.
+2. In the project, **Storage → Prisma Postgres**, then connect it with the env var prefix `DATABASE`; it sets `DATABASE_URL` and `DATABASE_URL_POOLED`.
 3. Add the remaining env vars from `.env.example` (Settings → Environment Variables), with `APP_URL` set to the production URL.
-4. Create the tables once from your machine: `npx prisma db push` with those database URLs in `.env`.
-5. Redeploy. `/checkout` and `/settings` are served as static pages via `vercel.json`, which also allows framing (`frame-ancestors *`).
+4. Deploy. The build runs `prisma db push`, which creates or updates the tables (it refuses changes that would lose data).
+5. `/checkout` and `/settings` are served as static pages via `vercel.json`, which also allows framing (`frame-ancestors *`).
 
 ## Known limits / things to confirm against live GHL behaviour
 - **Saved cards / off-session charges:** Paddle only charges saved methods inside subscriptions, so

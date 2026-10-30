@@ -2,11 +2,12 @@ generator client {
   provider = "prisma-client-js"
 }
 
-// Postgres (e.g. Neon via the Vercel Marketplace). Serverless needs a pooled URL.
+// Prisma Postgres via the Vercel Marketplace (connected with prefix "DATABASE").
+// Runtime uses the pooled URL; schema changes use the direct one.
 datasource db {
   provider  = "postgresql"
-  url       = env("DATABASE_URL")
-  directUrl = env("DATABASE_URL_UNPOOLED")
+  url       = env("DATABASE_URL_POOLED")
+  directUrl = env("DATABASE_URL")
 }
 
 /// One row per GHL sub-account (location) that installed the app.
