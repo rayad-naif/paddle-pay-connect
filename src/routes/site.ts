@@ -1,5 +1,7 @@
 import { Router } from 'express';
 import { config } from '../config';
+import { db } from '../db';
+import { isAppHost } from '../domains';
 import { escapeHtml } from './oauth';
 
 /**
@@ -8,6 +10,21 @@ import { escapeHtml } from './oauth';
  * privacy policy, refund policy, visible pricing and contact details).
  */
 export const siteRouter = Router();
+
+// On a merchant's checkout domain only /checkout belongs to us; everything else goes to the
+// merchant's own website, so Paddle reviewers never see this app's site under their domain.
+siteRouter.use(async (req, res, next) => {
+  if (req.method !== 'GET' || isAppHost(req.hostname) || req.path === '/checkout' || req.path.startsWith('/api/') || req.path === '/health') {
+    return next();
+  }
+  try {
+    const domain = await db.checkoutDomain.findUnique({ where: { hostname: req.hostname } });
+    if (domain?.websiteUrl) return res.redirect(302, domain.websiteUrl);
+    res.status(404).send('Not found');
+  } catch (e) {
+    next(e);
+  }
+});
 
 const PRODUCT = 'Paddle Pay for HighLevel';
 const UPDATED = '30 October 2026';

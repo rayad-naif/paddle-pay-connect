@@ -2,6 +2,7 @@ import { Router, type Request, type Response, type NextFunction } from 'express'
 import type { Mode } from '../config';
 import { db } from '../db';
 import { decryptGhlSso, signSession, verifySession } from '../lib/crypto';
+import { checkDomain, getDomainState, removeDomain, setDomain } from '../domains';
 import { fromMinor } from '../lib/money';
 import { UserError, connectPaddle, disconnectPaddle } from '../paddle/accounts';
 
@@ -92,4 +93,45 @@ settingsRouter.post('/api/settings/disconnect', auth, async (req, res) => {
   const mode = req.body?.mode === 'live' ? 'live' : 'test';
   await disconnectPaddle(res.locals.locationId, mode);
   res.json({ connected: false, mode });
+});
+
+/** The merchant's own checkout domain (pay.example.com) for Paddle domain approval. */
+function domainError(res: Response, e: any) {
+  if (e instanceof UserError) return res.status(400).json({ error: e.message });
+  console.error('Checkout domain failed', e);
+  res.status(500).json({ error: e.message ?? 'Something went wrong.' });
+}
+
+settingsRouter.get('/api/settings/domain', auth, async (_req, res) => {
+  try {
+    res.json({ domain: await getDomainState(res.locals.locationId) });
+  } catch (e) {
+    domainError(res, e);
+  }
+});
+
+settingsRouter.post('/api/settings/domain', auth, async (req, res) => {
+  try {
+    res.json({ domain: await setDomain(res.locals.locationId, String(req.body?.hostname ?? ''), req.body?.websiteUrl) });
+  } catch (e) {
+    domainError(res, e);
+  }
+});
+
+settingsRouter.post('/api/settings/domain/check', auth, async (_req, res) => {
+  try {
+    const domain = await db.checkoutDomain.findUnique({ where: { locationId: res.locals.locationId } });
+    res.json({ domain: domain ? await checkDomain(domain) : null });
+  } catch (e) {
+    domainError(res, e);
+  }
+});
+
+settingsRouter.post('/api/settings/domain/remove', auth, async (_req, res) => {
+  try {
+    await removeDomain(res.locals.locationId);
+    res.json({ domain: null });
+  } catch (e) {
+    domainError(res, e);
+  }
 });

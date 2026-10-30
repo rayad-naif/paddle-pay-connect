@@ -37,6 +37,12 @@ export const config = {
     address: process.env.BUSINESS_ADDRESS ?? 'Muzaffargarh, Punjab, Pakistan',
     email: process.env.SUPPORT_EMAIL ?? '',
   },
+  // Lets merchants serve checkout from their own subdomain (added to this Vercel project).
+  vercel: {
+    token: process.env.VERCEL_API_TOKEN ?? '',
+    projectId: process.env.VERCEL_PROJECT_ID_OR_NAME ?? 'paddle-pay-connect',
+    teamId: process.env.VERCEL_TEAM_ID ?? '',
+  },
   provider: {
     name: process.env.PROVIDER_NAME ?? 'Paddle',
     description: process.env.PROVIDER_DESCRIPTION ?? 'Accept payments with Paddle',
