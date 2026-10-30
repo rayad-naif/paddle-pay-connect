@@ -2,7 +2,7 @@ import type { CheckoutDomain } from '@prisma/client';
 import { config } from './config';
 import { db } from './db';
 import * as ghl from './ghl/client';
-import { UserError } from './paddle/accounts';
+import { UserError, paddleFor } from './paddle/accounts';
 import * as vercel from './vercel';
 
 const appHost = new URL(config.appUrl).hostname;
@@ -34,12 +34,30 @@ function normalizeWebsite(input: unknown, hostname: string): string {
   }
 }
 
+/** Paddle's review status for the domain, per connected mode. */
+type PaddleApproval = 'approved' | 'pending_review' | 'in_review' | 'rejected' | 'action_required' | 'not_submitted' | 'unknown';
+
 export interface DomainState {
   hostname: string;
   websiteUrl: string | null;
   status: string;
   records: vercel.DnsRecord[];
   paymentLink: string;
+  paddle: { test?: PaddleApproval; live?: PaddleApproval };
+}
+
+/** Reads the domain's approval status from each connected Paddle account (checkout domains API). */
+async function paddleApproval(locationId: string, hostname: string): Promise<DomainState['paddle']> {
+  const accounts = await db.paddleAccount.findMany({ where: { locationId } });
+  const result: DomainState['paddle'] = {};
+  await Promise.all(
+    accounts.map(async (a) => {
+      const domains = await paddleFor(a).listCheckoutDomains().catch(() => null);
+      const match = domains?.find((d) => d.domain === hostname || d.domain === `www.${hostname}`);
+      result[a.mode as 'test' | 'live'] = domains === null ? 'unknown' : ((match?.status as PaddleApproval) ?? 'not_submitted');
+    }),
+  );
+  return result;
 }
 
 async function probe(hostname: string): Promise<boolean> {
@@ -67,11 +85,12 @@ export async function checkDomain(domain: CheckoutDomain): Promise<DomainState> 
     if (domain.status === 'active') await ghl.registerProvider(domain.locationId, config.appUrl);
     domain = await db.checkoutDomain.update({ where: { locationId: domain.locationId }, data: { status } });
   }
-  return toState(domain, records);
+  return await toState(domain, records);
 }
 
-function toState(domain: CheckoutDomain, records: vercel.DnsRecord[]): DomainState {
+async function toState(domain: CheckoutDomain, records: vercel.DnsRecord[]): Promise<DomainState> {
   return {
+    paddle: domain.status === 'active' ? await paddleApproval(domain.locationId, domain.hostname) : {},
     hostname: domain.hostname,
     websiteUrl: domain.websiteUrl,
     status: domain.status,
@@ -83,7 +102,7 @@ function toState(domain: CheckoutDomain, records: vercel.DnsRecord[]): DomainSta
 export async function getDomainState(locationId: string): Promise<DomainState | null> {
   const domain = await db.checkoutDomain.findUnique({ where: { locationId } });
   if (!domain) return null;
-  if (domain.status === 'active') return toState(domain, []);
+  if (domain.status === 'active') return await toState(domain, []);
   return checkDomain(domain);
 }
 

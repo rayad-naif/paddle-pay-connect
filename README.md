@@ -57,7 +57,8 @@ In marketplace.gohighlevel.com → My Apps → Create App:
 
 ### What each merchant must do in Paddle
 - Create an API key with: `customer.read/write`, `transaction.read/write`, `adjustment.read/write`,
-  `subscription.read`, `payment_method.read`, `notification_setting.read/write`, `client_token.write`.
+  `subscription.read`, `payment_method.read`, `notification_setting.read/write`, `client_token.write`,
+  and optionally `checkout_domain.read` (lets the dashboard show the checkout domain's approval status).
 - Set a **default payment link** on an approved domain (Checkout → Checkout settings). Paddle
   requires this before it will create checkout transactions.
 - Have their business and products approved by Paddle (Paddle is Merchant of Record and reviews

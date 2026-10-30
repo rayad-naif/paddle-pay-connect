@@ -116,6 +116,20 @@ export class Paddle {
     return this.request<any>('POST', '/adjustments', body);
   }
 
+  /**
+   * Checkout domains submitted in Paddle (Website approval). Needs checkout_domain.read, which
+   * older keys don't have; returns null then so callers can fall back to manual instructions.
+   */
+  async listCheckoutDomains(): Promise<{ domain: string; status: string }[] | null> {
+    try {
+      const rows = await this.request<any[]>('GET', '/checkout-domains?per_page=200');
+      return rows.map((d) => ({ domain: String(d.domain ?? d.name ?? '').toLowerCase(), status: String(d.status ?? 'unknown') }));
+    } catch (e) {
+      if (e instanceof PaddleError && (e.status === 403 || e.status === 404)) return null;
+      throw e;
+    }
+  }
+
   listPaymentMethods(customerId: string) {
     return this.request<any[]>('GET', `/customers/${customerId}/payment-methods`);
   }
