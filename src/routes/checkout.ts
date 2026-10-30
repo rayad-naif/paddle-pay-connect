@@ -128,3 +128,10 @@ checkoutRouter.post('/api/checkout/session', async (req, res) => {
     res.status(500).json({ error: message ?? 'Could not start checkout.' });
   }
 });
+
+/** Client-side Paddle.js errors, logged so they show up in the server logs. */
+checkoutRouter.post('/api/checkout/log', (req, res) => {
+  const { transactionId, event } = req.body ?? {};
+  console.warn('Paddle checkout error', String(transactionId ?? '').slice(0, 64), JSON.stringify(event ?? null).slice(0, 2000));
+  res.status(204).end();
+});
