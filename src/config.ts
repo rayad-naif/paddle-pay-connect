@@ -31,6 +31,12 @@ export const config = {
       'products/prices.readonly',
     ],
   },
+  // Shown on the public website and legal pages (Paddle reviews these before approving a domain).
+  business: {
+    name: process.env.BUSINESS_NAME ?? 'IR Solutions',
+    address: process.env.BUSINESS_ADDRESS ?? 'Muzaffargarh, Punjab, Pakistan',
+    email: process.env.SUPPORT_EMAIL ?? '',
+  },
   provider: {
     name: process.env.PROVIDER_NAME ?? 'Paddle',
     description: process.env.PROVIDER_DESCRIPTION ?? 'Accept payments with Paddle',

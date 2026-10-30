@@ -6,6 +6,7 @@ import { settingsRouter } from './routes/settings';
 import { checkoutRouter } from './routes/checkout';
 import { queryRouter } from './routes/query';
 import { paddleWebhookRouter } from './routes/paddleWebhooks';
+import { siteRouter } from './routes/site';
 
 const app = express();
 app.disable('x-powered-by');
@@ -29,13 +30,14 @@ app.use((_req, res, next) => {
 
 const publicDir = path.join(__dirname, '..', 'public');
 app.get('/checkout', (_req, res) => res.sendFile(path.join(publicDir, 'checkout.html')));
-// The dashboard is GHL's custom page and side-panel link; serve it at the root too so a link
-// to the bare app URL never hits a 404.
-app.get(['/', '/settings', '/dashboard', '/app'], (_req, res) => res.sendFile(path.join(publicDir, 'settings.html')));
+// The dashboard is GHL's custom page and side-panel link. The root is the public website,
+// which forwards to the dashboard when it is opened inside a HighLevel iframe.
+app.get(['/settings', '/dashboard', '/app'], (_req, res) => res.sendFile(path.join(publicDir, 'settings.html')));
 app.use(express.static(publicDir));
 
 app.get('/health', (_req, res) => res.json({ ok: true }));
 
+app.use(siteRouter);
 app.use(oauthRouter);
 app.use(settingsRouter);
 app.use(checkoutRouter);
