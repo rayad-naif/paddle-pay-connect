@@ -131,7 +131,8 @@
           <li>In Paddle, go to <b>Developer tools → Authentication → API keys → New API key</b>.</li>
           <li>Grant: <code>customer.read</code> <code>customer.write</code> <code>transaction.read</code> <code>transaction.write</code>
             <code>adjustment.read</code> <code>adjustment.write</code> <code>subscription.read</code> <code>payment_method.read</code>
-            <code>notification_setting.read</code> <code>notification_setting.write</code> <code>client_token.write</code>.</li>
+            <code>notification_setting.read</code> <code>notification_setting.write</code> <code>client_token.write</code>,
+            and <code>checkout_domain.read</code> so the dashboard can show your domain approval.</li>
           <li>Sandbox keys start with <code>pdl_sdbx_</code>, live keys with <code>pdl_live_</code>. Paste it under <b>Connections</b>.</li>
         </ol>
       </div>
@@ -307,11 +308,24 @@
       const [label, cls] = DOMAIN_STATUS[domain.status] || [domain.status, ''];
       let detail;
       if (domain.status === 'active') {
-        detail = `<p>Your HighLevel checkout now loads from <b>${esc(domain.hostname)}</b>. Finish in Paddle (do this in both sandbox and live):</p>
+        const APPROVAL = { approved: ['Approved', 'ok'], pending_review: ['Pending review', 'warn'], in_review: ['In review', 'warn'],
+          rejected: ['Rejected', 'err'], action_required: ['Action required', 'err'], not_submitted: ['Not submitted', 'warn'], unknown: ['Check in Paddle', ''] };
+        const approvals = ['test', 'live'].filter((m) => domain.paddle && domain.paddle[m]).map((m) => {
+          const [l, c] = APPROVAL[domain.paddle[m]] || [domain.paddle[m], ''];
+          return `<span class="badge ${c}">${m === 'live' ? 'Live' : 'Sandbox'}: ${esc(l)}</span>`;
+        }).join(' ');
+        const unknown = domain.paddle && Object.values(domain.paddle).includes('unknown');
+        detail = `<p>Your HighLevel checkout now loads from <b>${esc(domain.hostname)}</b>.</p>
+          ${approvals ? `<p>Paddle website approval: ${approvals}</p>` : ''}
+          ${unknown ? '<p style="color:var(--muted);font-size:13px">To show the approval status here, add the <code>checkout_domain.read</code> permission to your Paddle API key.</p>' : ''}
+          <p>Finish in Paddle (sandbox approves domains automatically; live is reviewed by Paddle):</p>
           <ol class="steps">
-            <li><b>Checkout → Website approval:</b> add <code>${esc(domain.hostname)}</code> and submit it. Paddle reviews your main website (${esc(domain.websiteUrl || '')}), so make sure it shows your products, prices, terms, privacy and refund policy.</li>
-            <li><b>Checkout → Checkout settings → Default payment link:</b> <code>${esc(domain.paymentLink)}</code> ${copyBtn(domain.paymentLink)}</li>
-          </ol>`;
+            <li><b>Website approval:</b> submit <code>${esc(domain.hostname)}</code> ${copyBtn(domain.hostname)}. Paddle approves each exact host, so submit this subdomain itself, not only your main domain.
+              Paddle reviews your business at ${esc(domain.websiteUrl || '')}: it must show what you sell, prices, terms, privacy policy, refund policy and contact details.</li>
+            <li><b>Checkout settings → Default payment link:</b> <code>${esc(domain.paymentLink)}</code> ${copyBtn(domain.paymentLink)}</li>
+          </ol>
+          <p style="color:var(--muted);font-size:13px">You don't need to submit HighLevel's own domains (invoice and payment-link domains like <code>link.fastpaydirect.com</code>,
+          form domains like <code>api.leadconnectorhq.com</code>, or your funnel domain). Paddle checkout runs inside the frame served from ${esc(domain.hostname)}, which is the domain Paddle checks.</p>`;
       } else {
         detail = `<p>Add ${domain.records.length > 1 ? 'these DNS records' : 'this DNS record'} where your domain's DNS is managed (GoDaddy, Cloudflare, Namecheap…):</p>
           <div class="table-wrap"><table class="records"><thead><tr><th>Type</th><th>Name</th><th>Value</th><th></th></tr></thead><tbody>
