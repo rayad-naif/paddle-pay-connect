@@ -62,6 +62,31 @@
     .notice { padding:14px 16px; border-radius:10px; background:var(--warn-soft); color:var(--warn); margin-bottom:16px; }
     #loading { color:var(--muted); padding:40px 0; text-align:center; }
     [hidden] { display:none !important; }
+    .toolbar { display:flex; gap:10px; flex-wrap:wrap; align-items:center; margin-bottom:12px; }
+    .toolbar input, .toolbar select { margin:0; flex:1 1 200px; width:auto; }
+    .toolbar select { flex:0 1 170px; }
+    select { padding:10px 12px; border:1px solid var(--line); border-radius:8px; font:inherit; background:#fff; }
+    .modes { display:inline-flex; border:1px solid var(--line); border-radius:8px; overflow:hidden; flex:none; }
+    .modes button { border:0; background:#fff; padding:8px 12px; color:var(--muted); }
+    .modes button.on { background:var(--accent-soft); color:var(--accent); font-weight:600; }
+    .modes button:disabled { opacity:.4; cursor:default; }
+    tr.click { cursor:pointer; } tr.click:hover td { background:#f8fafc; }
+    .more { text-align:center; margin-top:10px; }
+    .sub-muted { color:var(--muted); font-size:13px; margin:6px 0 12px; }
+    .export { display:flex; gap:10px; align-items:center; flex-wrap:wrap; margin:-4px 0 12px; }
+    .export input { margin:0 0 0 6px; width:auto; }
+    .form-grid { display:grid; gap:10px; grid-template-columns:repeat(auto-fit, minmax(180px, 1fr)); }
+    .form-grid input, .form-grid select { margin:6px 0 0; width:100%; }
+    .switch { display:inline-flex; gap:8px; align-items:center; cursor:pointer; }
+    .switch input { width:auto; margin:0; }
+    .drawer { position:fixed; inset:0; background:rgba(15,23,42,.35); display:flex; justify-content:flex-end; z-index:10; }
+    .drawer-panel { background:#fff; width:min(560px, 100%); height:100%; overflow:auto; padding:22px 20px 40px; position:relative; box-shadow:-8px 0 24px rgba(0,0,0,.12); }
+    .drawer-close { position:absolute; top:10px; right:12px; border:0; background:none; font-size:26px; color:var(--muted); }
+    .drawer-panel h2 { margin:0 28px 4px 0; font-size:18px; }
+    .kv { display:grid; grid-template-columns:140px 1fr; gap:6px 12px; font-size:14px; margin:14px 0; }
+    .kv dt { color:var(--muted); } .kv dd { margin:0; word-break:break-word; }
+    .actions-row { display:flex; gap:8px; flex-wrap:wrap; margin:14px 0; }
+    .drawer-panel h3 { font-size:14px; margin:20px 0 6px; }
   </style>
 </head>
 <body>
@@ -79,6 +104,10 @@
   <div id="app" hidden>
     <nav>
       <button data-tab="overview" class="active">Overview</button>
+      <button data-tab="transactions">Transactions</button>
+      <button data-tab="subscriptions">Subscriptions</button>
+      <button data-tab="customers">Customers</button>
+      <button data-tab="discounts">Discounts</button>
       <button data-tab="connections">Connections</button>
       <button data-tab="domain">Checkout domain</button>
       <button data-tab="guide">Setup guide</button>
@@ -110,9 +139,84 @@
       </div>
     </section>
 
+    <section id="tab-transactions" hidden>
+      <div class="card">
+        <div class="toolbar">
+          <div class="modes" data-modes></div>
+          <input id="txQ" placeholder="Search by email, name or ID (txn_, sub_, ctm_)">
+          <select id="txStatus"><option value="">All statuses</option><option value="completed">Paid</option><option value="billed">Billed</option><option value="ready,draft">Awaiting payment</option><option value="past_due">Past due</option><option value="canceled">Canceled</option></select>
+          <button class="btn secondary" id="txExportBtn">Export CSV</button>
+        </div>
+        <div id="txExport" class="export" hidden>
+          <label>From <input type="date" id="exFrom"></label><label>To <input type="date" id="exTo"></label>
+          <button class="btn" id="exGo">Create export</button><span class="msg" id="exMsg"></span>
+        </div>
+        <div class="table-wrap"><table><thead><tr><th>Date</th><th>Customer</th><th>Items</th><th>Status</th><th style="text-align:right">Total</th></tr></thead><tbody id="txRows"></tbody></table></div>
+        <div class="more"><button class="btn secondary" id="txMore" hidden>Load more</button></div>
+      </div>
+    </section>
+
+    <section id="tab-subscriptions" hidden>
+      <div class="card">
+        <div class="toolbar">
+          <div class="modes" data-modes></div>
+          <select id="subStatus"><option value="">All statuses</option><option value="active">Active</option><option value="trialing">Trialing</option><option value="past_due">Past due</option><option value="paused">Paused</option><option value="canceled">Canceled</option></select>
+        </div>
+        <div class="table-wrap"><table><thead><tr><th>Customer</th><th>Plan</th><th>Status</th><th>Next payment</th><th style="text-align:right">Amount</th></tr></thead><tbody id="subRows"></tbody></table></div>
+        <div class="more"><button class="btn secondary" id="subMore" hidden>Load more</button></div>
+      </div>
+    </section>
+
+    <section id="tab-customers" hidden>
+      <div class="card">
+        <div class="toolbar">
+          <div class="modes" data-modes></div>
+          <input id="cuQ" placeholder="Search by email, name or ID">
+        </div>
+        <div class="table-wrap"><table><thead><tr><th>Name</th><th>Email</th><th>Customer since</th><th>Status</th></tr></thead><tbody id="cuRows"></tbody></table></div>
+        <div class="more"><button class="btn secondary" id="cuMore" hidden>Load more</button></div>
+      </div>
+    </section>
+
+    <section id="tab-discounts" hidden>
+      <div class="card">
+        <div class="row"><h2 style="margin:0">Discount codes at checkout</h2>
+          <label class="switch"><input type="checkbox" id="allowCodes"> Show a discount code field in checkout</label></div>
+        <p class="sub-muted">Buyers can enter any active code below. Codes apply in the mode (sandbox or live) they were created in.</p>
+      </div>
+      <div class="card">
+        <div class="toolbar"><div class="modes" data-modes></div>
+          <select id="dcStatus"><option value="active">Active</option><option value="archived">Archived</option></select></div>
+        <div class="table-wrap"><table><thead><tr><th>Code</th><th>Discount</th><th>Used</th><th>Expires</th><th></th></tr></thead><tbody id="dcRows"></tbody></table></div>
+      </div>
+      <div class="card">
+        <h2>New discount code</h2>
+        <div class="form-grid">
+          <label>Code<input id="dcCode" placeholder="SAVE20" autocomplete="off"></label>
+          <label>Type<select id="dcType"><option value="percentage">Percentage off</option><option value="flat">Fixed amount off</option></select></label>
+          <label>Amount<input id="dcAmount" type="number" min="0" step="0.01" placeholder="20"></label>
+          <label>Currency (fixed only)<input id="dcCurrency" value="USD" maxlength="3"></label>
+          <label>Usage limit<input id="dcLimit" type="number" min="1" placeholder="Unlimited"></label>
+          <label>Expires<input id="dcExpires" type="date"></label>
+        </div>
+        <label class="switch" style="margin-top:10px"><input type="checkbox" id="dcRecur"> Also discount subscription renewals</label>
+        <div class="row" style="justify-content:flex-start;margin-top:12px"><button class="btn" id="dcCreate">Create code</button><span class="msg" id="dcMsg"></span></div>
+      </div>
+    </section>
+
     <section id="tab-connections" hidden>
       <p style="color:var(--muted);margin:0 0 16px">Paste a Paddle API key. Webhooks, signing secrets and checkout tokens are set up automatically.</p>
       <div class="two" id="connections"></div>
+      <div class="card">
+        <div class="row"><h2 style="margin:0">Webhook deliveries</h2><div class="modes" data-modes></div></div>
+        <p class="sub-muted">Paddle tells the app about payments, renewals and refunds through these deliveries. Failed ones can be sent again.</p>
+        <div class="table-wrap"><table><thead><tr><th>Event</th><th>When</th><th>Status</th><th></th></tr></thead><tbody id="whRows"></tbody></table></div>
+      </div>
+      <div class="card">
+        <h2>Done in Paddle, not here</h2>
+        <p class="sub-muted">Paddle has no API for these, so they stay in your Paddle dashboard: the default payment link and checkout branding (Checkout → Checkout settings),
+          website approval, business and identity verification, payout bank details, and enabling payment methods like PayPal or Apple Pay.</p>
+      </div>
     </section>
 
     <section id="tab-domain" hidden>
@@ -135,7 +239,9 @@
           <li>Grant: <code>customer.read</code> <code>customer.write</code> <code>transaction.read</code> <code>transaction.write</code>
             <code>adjustment.read</code> <code>adjustment.write</code> <code>subscription.read</code> <code>payment_method.read</code>
             <code>notification_setting.read</code> <code>notification_setting.write</code> <code>client_token.write</code>,
-            and <code>checkout_domain.read</code> so the dashboard can show your domain approval.</li>
+            and <code>checkout_domain.read</code> so the dashboard can show your domain approval.
+            To manage everything from this dashboard, also add <code>subscription.write</code> <code>discount.read</code> <code>discount.write</code>
+            <code>report.read</code> <code>report.write</code> <code>notification.read</code> <code>notification.write</code> <code>customer_portal_session.write</code>.</li>
           <li>Sandbox keys start with <code>pdl_sdbx_</code>, live keys with <code>pdl_live_</code>. Paste it under <b>Connections</b>.</li>
         </ol>
       </div>
@@ -189,7 +295,8 @@
   document.querySelectorAll('nav button').forEach((b) => b.onclick = () => showTab(b.dataset.tab));
   function showTab(name) {
     document.querySelectorAll('nav button').forEach((b) => b.classList.toggle('active', b.dataset.tab === name));
-    ['overview', 'connections', 'domain', 'guide'].forEach((t) => $('tab-' + t).hidden = t !== name);
+    ['overview', 'transactions', 'subscriptions', 'customers', 'discounts', 'connections', 'domain', 'guide'].forEach((t) => $('tab-' + t).hidden = t !== name);
+    if (window.onTabShown) window.onTabShown(name);
   }
 
   // ---- overview ----
@@ -441,5 +548,7 @@
     }, 1000);
   }
 </script>
+<div id="drawer" class="drawer" hidden><div class="drawer-panel"><button class="drawer-close" id="drawerClose" aria-label="Close">×</button><div id="drawerBody"></div></div></div>
+<script src="/manage.js"></script>
 </body>
 </html>

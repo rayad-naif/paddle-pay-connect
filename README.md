@@ -10,6 +10,7 @@ client-side token, webhook destination and signing secret automatically.
 |---|---|---|
 | OAuth install | `GET /oauth/install`, `GET /oauth/callback` | Exchanges the code, stores tokens per location (handles agency bulk installs), registers the provider with `POST /payments/custom-provider/provider` |
 | App webhooks | `POST /webhooks/app` | On `UNINSTALL`, revokes the Paddle token, deletes the Paddle webhook destination and wipes stored keys |
+| Management API | `/api/manage/*` | Dashboard tabs: transactions (search, detail, invoice PDF, refunds, CSV export via reports), subscriptions (cancel/pause/resume), customers (portal links), discount codes, webhook deliveries (replay). Uses the merchant's key for the chosen mode |
 | Dashboard / settings | `GET /`, `/settings`, `/dashboard` + `/api/settings/*` | GHL custom page and side-panel link. Shows 30-day volume, recent payments and a setup checklist. Decrypts GHL SSO data, takes a Paddle API key, auto-detects sandbox/live, creates a client token + notification destination, then calls `POST /payments/custom-provider/connect` |
 | Checkout iframe | `GET /checkout` + `POST /api/checkout/session` | Receives `payment_initiate_props`, creates a Paddle transaction with a non-catalog price for the exact amount, opens Paddle.js inline checkout, replies with `custom_element_success_response { chargeId }` |
 | queryUrl | `POST /api/query` | `verify` (checks Paddle transaction status), `refund` (full or partial Paddle adjustment), `list_payment_methods`; `charge_payment` / `create_subscription` return "not supported" |
@@ -57,8 +58,9 @@ In marketplace.gohighlevel.com → My Apps → Create App:
 
 ### What each merchant must do in Paddle
 - Create an API key with: `customer.read/write`, `transaction.read/write`, `adjustment.read/write`,
-  `subscription.read`, `payment_method.read`, `notification_setting.read/write`, `client_token.write`,
-  and optionally `checkout_domain.read` (lets the dashboard show the checkout domain's approval status).
+  `subscription.read`, `payment_method.read`, `notification_setting.read/write`, `client_token.write`.
+  Optional, for dashboard management: `subscription.write`, `discount.read/write`, `report.read/write`,
+  `notification.read/write`, `customer_portal_session.write`, `checkout_domain.read`
 - Set a **default payment link** on an approved domain (Checkout → Checkout settings). Paddle
   requires this before it will create checkout transactions.
 - Have their business and products approved by Paddle (Paddle is Merchant of Record and reviews

@@ -22,7 +22,7 @@ settingsRouter.post('/api/settings/session', async (req, res) => {
   }
 });
 
-function auth(req: Request, res: Response, next: NextFunction) {
+export function auth(req: Request, res: Response, next: NextFunction) {
   const token = req.header('authorization')?.replace(/^Bearer /, '') ?? '';
   const session = verifySession(token);
   if (!session) return res.status(401).json({ error: 'Session expired. Reload the page.' });

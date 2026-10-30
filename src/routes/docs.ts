@@ -7,6 +7,7 @@ import { contactLine, layout } from './site';
 export const docsRouter = Router();
 
 const SECTIONS: [string, string][] = [
+  ['quick', 'In short'],
   ['overview', 'How it works'],
   ['requirements', 'Before you start'],
   ['paddle-account', '1. Create your Paddle accounts'],
@@ -19,6 +20,8 @@ const SECTIONS: [string, string][] = [
   ['default-provider', '8. Make Paddle Pay your payment provider'],
   ['test', '9. Test a payment'],
   ['go-live', '10. Go live'],
+  ['selling', 'Selling: forms, funnels, store, invoices'],
+  ['manage', 'Managing payments in the app'],
   ['where', 'Where payments work'],
   ['subscriptions', 'Subscriptions'],
   ['refunds', 'Refunds'],
@@ -37,10 +40,15 @@ const PERMISSIONS: [string, string][] = [
   ['transaction.read, transaction.write', 'Creates the transaction for each order and checks whether it was paid.'],
   ['adjustment.read, adjustment.write', 'Sends full and partial refunds you issue in your CRM.'],
   ['subscription.read', 'Reads subscriptions created from recurring products.'],
+  ['subscription.write (optional)', 'Cancel, pause and resume subscriptions from the dashboard.'],
   ['payment_method.read', 'Lists a customer’s saved cards for your CRM.'],
   ['notification_setting.read, notification_setting.write', 'Creates the webhook that tells the app when a payment completes.'],
   ['client_token.write', 'Creates the client-side token that opens Paddle checkout.'],
   ['checkout_domain.read (optional)', 'Shows your domain’s Paddle approval status in the dashboard.'],
+  ['discount.read, discount.write (optional)', 'Create and archive discount codes from the dashboard.'],
+  ['report.read, report.write (optional)', 'Export transactions to CSV from the dashboard.'],
+  ['notification.read, notification.write (optional)', 'Show webhook deliveries and resend failed ones.'],
+  ['customer_portal_session.write (optional)', 'Create customer portal links (customers update their card or cancel).'],
 ];
 
 const ERRORS: [string, string][] = [
@@ -112,6 +120,15 @@ docsRouter.get('/docs', (_req, res) => {
   <article class="content">
   <h1>Paddle Pay setup guide</h1>
   <p class="muted">Everything from creating your Paddle account to taking your first live payment. Follow the numbered steps in order.</p>
+
+  <h2 id="quick">In short</h2>
+  <ol>
+    <li>Connect your Paddle sandbox and live API keys in the Paddle Pay dashboard (<b>Connections</b>).</li>
+    <li>Connect your checkout subdomain (<b>Checkout domain</b>) and set the default payment link and website approval in Paddle.</li>
+    <li>In your CRM, set <b>Paddle Pay</b> as the default payment provider (<b>Payments → Integrations</b>).</li>
+    <li>Sell as usual: create products in your CRM and add them to an order form, a form’s product/payment element, your store, an invoice or a payment link. Paddle’s checkout opens automatically.</li>
+    <li>Manage everything (payments, refunds, invoices, subscriptions, customers, discount codes, exports) from the Paddle Pay dashboard.</li>
+  </ol>
 
   <h2 id="overview">How it works</h2>
   <p>Paddle Pay connects your CRM to your own Paddle Billing account. When a customer pays in a funnel, website, store, invoice or payment link:</p>
@@ -254,6 +271,35 @@ docsRouter.get('/docs', (_req, res) => {
     <li>☐ One small real purchase made, then refunded.</li>
   </ul>
 
+  <h2 id="selling">Selling: forms, funnels, store, invoices</h2>
+  <p>Paddle Pay doesn’t add its own buttons. It powers the payment step of whatever you already sell with in your CRM. Every sale starts from a <b>product</b>:</p>
+  <ol>
+    <li><b>Create the product</b> in your CRM (<b>Payments → Products</b>): name, price and currency. For a subscription choose a recurring price (daily, weekly, monthly or yearly) and, optionally, trial days.</li>
+    <li><b>Add it where customers buy</b>:
+      <ul>
+        <li><b>Funnels and websites:</b> on an order form step, add the product to the step’s products, and keep the order form element (with its payment section) on the page.</li>
+        <li><b>Forms:</b> add the <b>product / payment element</b> (the “sell product” element) to the form and pick the products it sells. When the form is submitted, the payment step opens Paddle checkout.</li>
+        <li><b>Store:</b> products added to your store use the store’s checkout, which uses Paddle Pay.</li>
+        <li><b>Invoices and text-to-pay:</b> create the invoice as usual. The customer’s “Pay” button opens Paddle checkout.</li>
+        <li><b>Payment links:</b> create a payment link for the product and share it.</li>
+      </ul>
+    </li>
+    <li><b>Publish</b> and make a test purchase in test mode (step 9).</li>
+  </ol>
+  <div class="note">The amount and currency always come from your CRM product. Paddle adds sales tax or VAT for the buyer’s location, and the order summary next to the card form shows it.</div>
+
+  <h2 id="manage">Managing payments in the app</h2>
+  <p>You don’t need to open Paddle for day-to-day work. Every tab has a <b>Live / Sandbox</b> switch.</p>
+  <dl>
+    <dt>Transactions</dt><dd>Every payment, searchable by customer email, name or ID and filterable by status. Open one to see items, tax, Paddle’s fee and your earnings, <b>download the invoice PDF</b>, see past refunds, and <b>issue a full or partial refund</b>. <b>Export CSV</b> creates a spreadsheet of transactions for any date range.</dd>
+    <dt>Subscriptions</dt><dd>All subscriptions with their status and next payment date. Open one to <b>cancel at period end</b>, <b>cancel now</b>, undo a pending cancellation, <b>pause</b> or <b>resume</b>, or see its payments.</dd>
+    <dt>Customers</dt><dd>Search customers and see each one’s total paid, subscriptions and payments. <b>Customer portal link</b> copies a secure link you can send so the customer can update their card or manage their subscription.</dd>
+    <dt>Discounts</dt><dd>Create discount codes (percentage or fixed amount, usage limit, expiry, optionally applied to renewals), archive or restore them, and switch the <b>discount code field</b> in checkout on or off.</dd>
+    <dt>Connections → Webhook deliveries</dt><dd>See the messages Paddle sent to the app and <b>send failed ones again</b>. Useful if an order wasn’t marked paid.</dd>
+  </dl>
+  <p>Some things can only be done in Paddle’s dashboard, because Paddle has no API for them: the default payment link and checkout branding, website approval, business and identity verification, payout bank details, and turning on payment methods such as PayPal or Apple Pay.</p>
+  <p class="muted">The management features use the optional API key permissions marked in step 3. If one is missing, the dashboard tells you which permission to add.</p>
+
   <h2 id="where">Where payments work</h2>
   <div class="table-wrap"><table><thead><tr><th>Works</th><th>Doesn’t work</th></tr></thead><tbody><tr><td>
     <ul><li>Funnel and website order forms, including order bumps</li><li>Store checkout</li><li>Invoices, including text-to-pay links</li><li>Payment links</li><li>One-time and recurring products</li><li>Full and partial refunds from the CRM</li></ul>
@@ -266,12 +312,12 @@ docsRouter.get('/docs', (_req, res) => {
   <ul>
     <li>When a customer buys a recurring product, Paddle Pay creates a Paddle subscription with the same interval (daily, weekly, monthly or yearly) and any free trial days.</li>
     <li>Paddle charges each renewal automatically, and each renewal is reported back to your CRM.</li>
-    <li>Paddle emails customers a link to manage their subscription: update their card or cancel. You can also cancel or pause subscriptions in Paddle under <b>Customers → Subscriptions</b>.</li>
+    <li>Paddle emails customers a link to manage their subscription: update their card or cancel. You can cancel, pause or resume subscriptions, or send a customer portal link, from <b>Subscriptions</b> in the Paddle Pay dashboard.</li>
   </ul>
 
   <h2 id="refunds">Refunds</h2>
   <ul>
-    <li>Issue refunds from the order or transaction in your CRM, either full or partial. Paddle Pay sends them to Paddle.</li>
+    <li>Issue refunds from the order or transaction in your CRM, or from <b>Transactions</b> in the Paddle Pay dashboard, either full or partial. Paddle Pay sends them to Paddle.</li>
     <li>Paddle may hold a refund for approval first. It then shows as pending until Paddle approves it. Sandbox refunds are approved automatically about every 10 minutes.</li>
     <li>The money goes back to the customer’s original payment method, usually within 5 to 10 business days.</li>
   </ul>
@@ -291,7 +337,8 @@ docsRouter.get('/docs', (_req, res) => {
   <dl>
     <dt>Overview</dt><dd>Live revenue and sandbox volume for the last 30 days, subscriptions started, connection status, a setup checklist and your latest payments.</dd>
     <dt>Payment statuses</dt><dd><b>Paid</b>: completed. <b>Awaiting payment</b>: checkout was opened but not paid. These are abandoned or still-open checkouts, and nobody was charged. <b>Past due</b>: a subscription renewal failed. <b>Canceled</b>: the transaction was cancelled.</dd>
-    <dt>Connections</dt><dd>Connect, replace or disconnect your sandbox and live Paddle keys.</dd>
+    <dt>Transactions, Subscriptions, Customers, Discounts</dt><dd>See <a href="#manage">Managing payments in the app</a>.</dd>
+    <dt>Connections</dt><dd>Connect, replace or disconnect your sandbox and live Paddle keys, and see webhook deliveries.</dd>
     <dt>Checkout domain</dt><dd>Connect your own checkout subdomain, see its DNS records and its Paddle approval status.</dd>
     <dt>Setup guide</dt><dd>A short version of this guide.</dd>
   </dl>

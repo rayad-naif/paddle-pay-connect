@@ -28,6 +28,11 @@ export class Paddle {
   }
 
   private async request<T = any>(method: string, path: string, body?: unknown): Promise<T> {
+    return (await this.requestFull<T>(method, path, body)).data;
+  }
+
+  /** Like request(), but also returns Paddle's pagination cursor for list endpoints. */
+  private async requestFull<T = any>(method: string, path: string, body?: unknown): Promise<{ data: T; next: string | null }> {
     const res = await fetch(`${this.base}${path}`, {
       method,
       headers: {
@@ -36,13 +41,34 @@ export class Paddle {
       },
       body: body === undefined ? undefined : JSON.stringify(body),
     });
-    if (res.status === 204) return undefined as T;
+    if (res.status === 204) return { data: undefined as T, next: null };
     const json: any = await res.json().catch(() => ({}));
     if (!res.ok) {
       const err = json.error ?? {};
       throw new PaddleError(res.status, err.code ?? 'unknown', err.detail ?? `Paddle API error ${res.status}`);
     }
-    return json.data as T;
+    const pagination = json.meta?.pagination;
+    const next = pagination?.has_more && pagination.next ? new URL(pagination.next).searchParams.get('after') : null;
+    return { data: json.data as T, next };
+  }
+
+  /** GET a list endpoint with query params; returns one page plus the cursor for the next. */
+  list<T = any>(path: string, params: Record<string, string | number | undefined>) {
+    const qs = new URLSearchParams();
+    for (const [k, v] of Object.entries(params)) if (v !== undefined && v !== '') qs.set(k, String(v));
+    return this.requestFull<T[]>('GET', `${path}?${qs}`);
+  }
+
+  get<T = any>(path: string) {
+    return this.request<T>('GET', path);
+  }
+
+  post<T = any>(path: string, body?: unknown) {
+    return this.request<T>('POST', path, body ?? {});
+  }
+
+  patch<T = any>(path: string, body: unknown) {
+    return this.request<T>('PATCH', path, body);
   }
 
   /** Read-only calls that fail with 403 if the key lacks customer/transaction access. */
