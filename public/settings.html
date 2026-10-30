@@ -3,57 +3,157 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Paddle Settings</title>
+  <title>Paddle Pay</title>
+  <link rel="icon" href="/logo.svg">
   <style>
-    :root { --bg:#f8fafc; --card:#fff; --text:#0f172a; --muted:#64748b; --line:#e2e8f0; --accent:#2563eb; --ok:#15803d; --err:#b91c1c; }
+    :root { --bg:#f6f7fb; --card:#fff; --text:#0f172a; --muted:#64748b; --line:#e5e7eb; --accent:#4338ca; --accent-soft:#eef2ff;
+            --ok:#15803d; --ok-soft:#dcfce7; --warn:#b45309; --warn-soft:#fef3c7; --err:#b91c1c; --err-soft:#fee2e2; }
     * { box-sizing: border-box; }
-    body { margin:0; background:var(--bg); color:var(--text); font-family:system-ui,-apple-system,Segoe UI,sans-serif; }
-    main { max-width:720px; margin:0 auto; padding:24px 16px; }
-    h1 { font-size:20px; margin:0 0 4px; }
-    p.sub { color:var(--muted); margin:0 0 20px; font-size:14px; }
-    .card { background:var(--card); border:1px solid var(--line); border-radius:10px; padding:18px; margin-bottom:16px; }
+    body { margin:0; background:var(--bg); color:var(--text); font-family:system-ui,-apple-system,Segoe UI,sans-serif; font-size:14px; }
+    main { max-width:1040px; margin:0 auto; padding:20px 16px 40px; }
+    header { display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap; margin-bottom:16px; }
+    .brand { display:flex; align-items:center; gap:10px; }
+    .brand img { width:36px; height:36px; }
+    .brand h1 { font-size:18px; margin:0; }
+    .brand p { margin:0; color:var(--muted); font-size:12px; }
+    nav { display:flex; gap:4px; background:var(--card); border:1px solid var(--line); border-radius:10px; padding:4px; margin-bottom:16px; overflow-x:auto; }
+    nav button { border:0; background:none; color:var(--muted); padding:8px 14px; border-radius:7px; font-weight:500; white-space:nowrap; }
+    nav button.active { background:var(--accent-soft); color:var(--accent); }
+    .card { background:var(--card); border:1px solid var(--line); border-radius:12px; padding:18px; margin-bottom:16px; }
+    .card h2 { font-size:15px; margin:0 0 12px; }
+    .grid { display:grid; gap:12px; grid-template-columns:repeat(auto-fit, minmax(200px, 1fr)); margin-bottom:16px; }
+    .stat { background:var(--card); border:1px solid var(--line); border-radius:12px; padding:16px; }
+    .stat .label { color:var(--muted); font-size:12px; }
+    .stat .value { font-size:22px; font-weight:650; margin-top:6px; font-variant-numeric:tabular-nums; }
+    .stat .sub { color:var(--muted); font-size:12px; margin-top:4px; }
     .row { display:flex; justify-content:space-between; align-items:center; gap:12px; flex-wrap:wrap; }
-    .badge { font-size:12px; padding:3px 8px; border-radius:999px; background:#f1f5f9; color:var(--muted); }
-    .badge.on { background:#dcfce7; color:var(--ok); }
+    .two { display:grid; gap:16px; grid-template-columns:repeat(auto-fit, minmax(300px, 1fr)); margin-bottom:16px; }
+    .two > .card { margin-bottom:0; }
+    .badge { display:inline-block; font-size:12px; padding:2px 8px; border-radius:999px; background:#f1f5f9; color:var(--muted); white-space:nowrap; }
+    .badge.ok { background:var(--ok-soft); color:var(--ok); }
+    .badge.warn { background:var(--warn-soft); color:var(--warn); }
+    .badge.err { background:var(--err-soft); color:var(--err); }
+    .badge.test { background:var(--accent-soft); color:var(--accent); }
     input { width:100%; padding:10px 12px; border:1px solid var(--line); border-radius:8px; font:inherit; margin:12px 0 10px; }
-    button { padding:9px 14px; border-radius:8px; border:1px solid var(--accent); background:var(--accent); color:#fff; font:inherit; cursor:pointer; }
-    button.secondary { background:#fff; color:var(--text); border-color:var(--line); }
-    button:disabled { opacity:.6; cursor:default; }
-    .msg { font-size:13px; margin-top:8px; }
+    button { font:inherit; cursor:pointer; }
+    .btn { padding:9px 14px; border-radius:8px; border:1px solid var(--accent); background:var(--accent); color:#fff; }
+    .btn.secondary { background:#fff; color:var(--text); border-color:var(--line); }
+    .btn:disabled { opacity:.6; cursor:default; }
+    .msg { font-size:13px; margin-top:8px; min-height:1em; }
     .msg.err { color:var(--err); } .msg.ok { color:var(--ok); }
-    details { font-size:14px; color:var(--muted); }
-    details li { margin:4px 0; }
-    code { background:#f1f5f9; padding:1px 5px; border-radius:4px; font-size:12px; }
-    #loading { color:var(--muted); }
+    .checklist { list-style:none; margin:0; padding:0; }
+    .checklist li { display:flex; gap:10px; align-items:flex-start; padding:8px 0; border-top:1px solid var(--line); }
+    .checklist li:first-child { border-top:0; }
+    .dot { flex:none; width:20px; height:20px; border-radius:50%; display:grid; place-items:center; font-size:12px; background:#f1f5f9; color:var(--muted); }
+    .dot.ok { background:var(--ok-soft); color:var(--ok); }
+    .checklist small { display:block; color:var(--muted); }
+    .table-wrap { overflow-x:auto; }
+    table { width:100%; border-collapse:collapse; }
+    th, td { text-align:left; padding:10px 8px; border-top:1px solid var(--line); white-space:nowrap; }
+    th { color:var(--muted); font-weight:500; font-size:12px; border-top:0; }
+    td.num { text-align:right; font-variant-numeric:tabular-nums; }
+    td code, li code { background:#f1f5f9; padding:1px 5px; border-radius:4px; font-size:12px; }
+    .empty { color:var(--muted); text-align:center; padding:24px 8px; }
+    ol.steps li { margin:8px 0; line-height:1.5; }
+    .notice { padding:14px 16px; border-radius:10px; background:var(--warn-soft); color:var(--warn); margin-bottom:16px; }
+    #loading { color:var(--muted); padding:40px 0; text-align:center; }
+    [hidden] { display:none !important; }
   </style>
 </head>
 <body>
 <main>
-  <h1>Connect Paddle</h1>
-  <p class="sub">Paste a Paddle API key. Webhooks, signing secrets and checkout tokens are set up automatically.</p>
-  <div id="loading">Verifying your HighLevel session…</div>
-  <div id="app" hidden></div>
+  <header>
+    <div class="brand">
+      <img src="/logo.svg" alt="">
+      <div><h1>Paddle Pay</h1><p>Paddle Billing for HighLevel</p></div>
+    </div>
+    <span id="who" class="badge"></span>
+  </header>
 
-  <details class="card">
-    <summary><b>How to create the API key</b></summary>
-    <ol>
-      <li>In Paddle, go to <b>Developer tools → Authentication → API keys → New API key</b>.</li>
-      <li>Grant these permissions:
-        <code>customer.read</code> <code>customer.write</code> <code>transaction.read</code> <code>transaction.write</code>
-        <code>adjustment.read</code> <code>adjustment.write</code> <code>subscription.read</code>
-        <code>payment_method.read</code> <code>notification_setting.read</code> <code>notification_setting.write</code>
-        <code>client_token.write</code>.</li>
-      <li>Copy the key and paste it here. Sandbox keys start with <code>pdl_sdbx_</code>, live keys with <code>pdl_live_</code>.</li>
-      <li>In Paddle <b>Checkout → Checkout settings</b>, make sure a default payment link is set on an approved domain.</li>
-      <li>Back in HighLevel, open <b>Payments → Integrations</b> and set this provider as default.</li>
-    </ol>
-  </details>
+  <div id="loading">Verifying your HighLevel session…</div>
+
+  <div id="app" hidden>
+    <nav>
+      <button data-tab="overview" class="active">Overview</button>
+      <button data-tab="connections">Connections</button>
+      <button data-tab="guide">Setup guide</button>
+    </nav>
+
+    <section id="tab-overview">
+      <div id="notice" class="notice" hidden></div>
+      <div class="grid" id="stats"></div>
+      <div class="two">
+        <div class="card">
+          <h2>Setup checklist</h2>
+          <ul class="checklist" id="checklist"></ul>
+        </div>
+        <div class="card">
+          <h2>How payments flow</h2>
+          <ul class="checklist">
+            <li><span class="dot">1</span><div>Customer pays in a HighLevel funnel, invoice or payment link<small>Paddle's secure checkout opens inside the page.</small></div></li>
+            <li><span class="dot">2</span><div>Paddle charges the card as Merchant of Record<small>Sales tax / VAT is calculated and remitted by Paddle.</small></div></li>
+            <li><span class="dot">3</span><div>HighLevel marks the order paid<small>Refunds from HighLevel are sent to Paddle automatically.</small></div></li>
+          </ul>
+        </div>
+      </div>
+      <div class="card">
+        <div class="row"><h2>Recent payments</h2><button class="btn secondary" id="refresh">Refresh</button></div>
+        <div class="table-wrap"><table>
+          <thead><tr><th>Date</th><th>Paddle transaction</th><th>Type</th><th>Mode</th><th>Status</th><th style="text-align:right">Amount</th></tr></thead>
+          <tbody id="payments"></tbody>
+        </table></div>
+      </div>
+    </section>
+
+    <section id="tab-connections" hidden>
+      <p style="color:var(--muted);margin:0 0 16px">Paste a Paddle API key. Webhooks, signing secrets and checkout tokens are set up automatically.</p>
+      <div class="two" id="connections"></div>
+    </section>
+
+    <section id="tab-guide" hidden>
+      <div class="card">
+        <h2>1. Create a Paddle API key</h2>
+        <ol class="steps">
+          <li>In Paddle, go to <b>Developer tools → Authentication → API keys → New API key</b>.</li>
+          <li>Grant: <code>customer.read</code> <code>customer.write</code> <code>transaction.read</code> <code>transaction.write</code>
+            <code>adjustment.read</code> <code>adjustment.write</code> <code>subscription.read</code> <code>payment_method.read</code>
+            <code>notification_setting.read</code> <code>notification_setting.write</code> <code>client_token.write</code>.</li>
+          <li>Sandbox keys start with <code>pdl_sdbx_</code>, live keys with <code>pdl_live_</code>. Paste it under <b>Connections</b>.</li>
+        </ol>
+      </div>
+      <div class="card">
+        <h2>2. Approve your checkout domain</h2>
+        <ol class="steps">
+          <li>In Paddle <b>Checkout → Checkout settings</b>, set a <b>default payment link</b> on an approved domain. Paddle won't open checkout without it.</li>
+          <li>Live accounts: your website must be approved in <b>Checkout → Website approval</b>.</li>
+          <li>If checkout spins and never loads, this step is almost always the cause.</li>
+        </ol>
+      </div>
+      <div class="card">
+        <h2>3. Turn it on in HighLevel</h2>
+        <ol class="steps">
+          <li>Open <b>Payments → Integrations</b>, find <b>Paddle Pay</b> and click <b>Set as default</b>.</li>
+          <li>Use test mode with sandbox key and card <code>4242 4242 4242 4242</code>, any future expiry, CVC <code>100</code>.</li>
+          <li>Switch HighLevel to live mode once the live key is connected.</li>
+        </ol>
+      </div>
+    </section>
+  </div>
 </main>
 
 <script>
-  const app = document.getElementById('app');
-  const loading = document.getElementById('loading');
+  const $ = (id) => document.getElementById(id);
+  const app = $('app'), loading = $('loading');
   let token = '';
+  let status = null;
+
+  const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' })[c]);
+  const money = (amount, currency) => {
+    try { return new Intl.NumberFormat(undefined, { style: 'currency', currency }).format(amount); }
+    catch { return `${amount.toFixed(2)} ${currency}`; }
+  };
+  const STATUS = { completed:['Paid','ok'], paid:['Paid','ok'], billed:['Billed','ok'], ready:['Awaiting payment','warn'],
+                   draft:['Awaiting payment','warn'], past_due:['Past due','err'], canceled:['Canceled','err'] };
 
   function api(path, body) {
     return fetch(path, {
@@ -67,19 +167,72 @@
     });
   }
 
-  function card(mode, info) {
+  // ---- tabs ----
+  document.querySelectorAll('nav button').forEach((b) => b.onclick = () => showTab(b.dataset.tab));
+  function showTab(name) {
+    document.querySelectorAll('nav button').forEach((b) => b.classList.toggle('active', b.dataset.tab === name));
+    ['overview', 'connections', 'guide'].forEach((t) => $('tab-' + t).hidden = t !== name);
+  }
+
+  // ---- overview ----
+  function stat(label, value, sub) {
+    return `<div class="stat"><div class="label">${esc(label)}</div><div class="value">${esc(value)}</div><div class="sub">${esc(sub || '')}</div></div>`;
+  }
+  function volume(totals, mode) {
+    const rows = totals.filter((t) => t.mode === mode);
+    if (!rows.length) return { value: '—', count: 0 };
+    rows.sort((a, b) => b.amount - a.amount);
+    return { value: rows.map((t) => money(t.amount, t.currency)).join(' · '), count: rows.reduce((n, t) => n + t.count, 0) };
+  }
+
+  function renderOverview(o) {
+    const live = volume(o.totals, 'live'), test = volume(o.totals, 'test');
+    $('stats').innerHTML =
+      stat('Live revenue (30 days)', live.value, `${live.count} paid payment${live.count === 1 ? '' : 's'}`) +
+      stat('Sandbox volume (30 days)', test.value, `${test.count} test payment${test.count === 1 ? '' : 's'}`) +
+      stat('Subscriptions started', String((o.subscriptions.live || 0)), `${o.subscriptions.test || 0} in sandbox`) +
+      stat('Connection', status.live.connected ? 'Live' : status.test.connected ? 'Sandbox only' : 'Not connected',
+        status.live.connected && status.test.connected ? 'Sandbox and live keys connected' : '');
+
+    const steps = [
+      [true, 'App installed in this sub-account', ''],
+      [status.test.connected, 'Sandbox key connected', 'Connections → Sandbox'],
+      [status.live.connected, 'Live key connected', 'Connections → Live'],
+      [o.recent.some((p) => STATUS[p.status]?.[1] === 'ok'), 'First successful payment', 'Run a test purchase with card 4242 4242 4242 4242'],
+    ];
+    $('checklist').innerHTML = steps.map(([done, title, hint]) =>
+      `<li><span class="dot ${done ? 'ok' : ''}">${done ? '✓' : ''}</span><div>${esc(title)}${done || !hint ? '' : `<small>${esc(hint)}</small>`}</div></li>`).join('') +
+      `<li><span class="dot">!</span><div>Set as default in Payments → Integrations<small>And set a default payment link in Paddle → Checkout settings.</small></div></li>`;
+
+    const stuck = o.recent.filter((p) => p.status === 'ready' || p.status === 'draft').length;
+    const notice = $('notice');
+    notice.hidden = !(stuck >= 3 && !o.recent.some((p) => STATUS[p.status]?.[1] === 'ok'));
+    notice.innerHTML = 'Several checkouts were started but none were paid. If customers see a spinner, set a <b>default payment link</b> on an approved domain in Paddle → Checkout settings.';
+
+    $('payments').innerHTML = o.recent.length ? o.recent.map((p) => {
+      const [label, cls] = STATUS[p.status] || [p.status, ''];
+      return `<tr><td>${esc(new Date(p.createdAt).toLocaleString())}</td><td><code>${esc(p.id)}</code></td>
+        <td>${p.subscription ? 'Subscription' : 'One-time'}</td>
+        <td><span class="badge ${p.mode === 'live' ? '' : 'test'}">${p.mode === 'live' ? 'Live' : 'Sandbox'}</span></td>
+        <td><span class="badge ${cls}">${esc(label)}</span></td><td class="num">${esc(money(p.amount, p.currency))}</td></tr>`;
+    }).join('') : '<tr><td colspan="6" class="empty">No payments yet. They appear here as soon as a customer opens checkout.</td></tr>';
+  }
+
+  // ---- connections ----
+  function connectionCard(mode, info) {
     const label = mode === 'live' ? 'Live' : 'Sandbox (test mode)';
     const el = document.createElement('div');
     el.className = 'card';
     el.innerHTML = `
       <div class="row">
         <b>${label}</b>
-        <span class="badge ${info.connected ? 'on' : ''}">${info.connected ? 'Connected' : 'Not connected'}</span>
+        <span class="badge ${info.connected ? 'ok' : ''}">${info.connected ? 'Connected' : 'Not connected'}</span>
       </div>
+      ${info.connected ? `<div style="color:var(--muted);font-size:12px;margin-top:6px">Since ${esc(new Date(info.connectedAt).toLocaleDateString())}</div>` : ''}
       <input type="password" autocomplete="off" placeholder="${mode === 'live' ? 'pdl_live_apikey_…' : 'pdl_sdbx_apikey_…'}">
-      <div class="row">
-        <button class="connect">${info.connected ? 'Reconnect' : 'Connect'}</button>
-        ${info.connected ? '<button class="secondary disconnect">Disconnect</button>' : ''}
+      <div class="row" style="justify-content:flex-start">
+        <button class="btn connect">${info.connected ? 'Replace key' : 'Connect'}</button>
+        ${info.connected ? '<button class="btn secondary disconnect">Disconnect</button>' : ''}
       </div>
       <div class="msg"></div>`;
     const input = el.querySelector('input');
@@ -91,29 +244,37 @@
       const expected = mode === 'live' ? 'pdl_live_' : 'pdl_sdbx_';
       if (!key.startsWith(expected)) return setMsg(`This field needs a ${label.toLowerCase()} key (starts with ${expected}).`);
       e.target.disabled = true; setMsg('Connecting to Paddle…', true);
-      try { await api('/api/settings/connect', { apiKey: key }); await render(); }
+      try { await api('/api/settings/connect', { apiKey: key }); await render(); showTab('connections'); }
       catch (err) { setMsg(err.message); e.target.disabled = false; }
     };
     const dc = el.querySelector('.disconnect');
     if (dc) dc.onclick = async () => {
       if (!confirm(`Disconnect ${label}? Payments in this mode will stop working.`)) return;
       dc.disabled = true;
-      try { await api('/api/settings/disconnect', { mode }); await render(); }
+      try { await api('/api/settings/disconnect', { mode }); await render(); showTab('connections'); }
       catch (err) { setMsg(err.message); dc.disabled = false; }
     };
     return el;
   }
 
   async function render() {
-    const status = await api('/api/settings');
-    app.replaceChildren(card('test', status.test), card('live', status.live));
+    const [s, o] = await Promise.all([api('/api/settings'), api('/api/settings/overview')]);
+    status = s;
+    $('connections').replaceChildren(connectionCard('test', s.test), connectionCard('live', s.live));
+    renderOverview(o);
     app.hidden = false;
     loading.hidden = true;
+    if (!s.test.connected && !s.live.connected) showTab('connections');
   }
+
+  $('refresh').onclick = async (e) => {
+    e.target.disabled = true;
+    try { await render(); } finally { e.target.disabled = false; }
+  };
 
   // HighLevel custom pages: ask the parent for encrypted user data, then trade it for a session.
   window.addEventListener('message', async ({ data }) => {
-    if (!data || data.message !== 'REQUEST_USER_DATA_RESPONSE') return;
+    if (!data || data.message !== 'REQUEST_USER_DATA_RESPONSE' || token) return;
     try {
       const res = await fetch('/api/settings/session', {
         method: 'POST',
@@ -123,15 +284,20 @@
       const json = await res.json();
       if (!res.ok) throw new Error(json.error);
       token = json.token;
+      if (json.userName) { $('who').textContent = json.userName; }
       await render();
     } catch (err) {
-      loading.textContent = err.message || 'Could not load settings.';
+      loading.textContent = err.message || 'Could not load the dashboard.';
     }
   });
-  window.parent.postMessage({ message: 'REQUEST_USER_DATA' }, '*');
-  setTimeout(() => {
-    if (!token) loading.textContent = 'Open this page from inside HighLevel (Payments → Integrations → Paddle).';
-  }, 8000);
+
+  const outside = 'Open this page from inside HighLevel: Payments → Integrations → Paddle Pay, or the Paddle Pay item in the sub-account menu.';
+  if (window.parent === window) {
+    loading.textContent = outside;
+  } else {
+    window.parent.postMessage({ message: 'REQUEST_USER_DATA' }, '*');
+    setTimeout(() => { if (!token) loading.textContent = outside; }, 8000);
+  }
 </script>
 </body>
 </html>

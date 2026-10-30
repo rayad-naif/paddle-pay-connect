@@ -6,75 +6,112 @@
   <title>Paddle Checkout</title>
   <script src="https://cdn.paddle.com/paddle/v2/paddle.js"></script>
   <style>
-    :root { color-scheme: light; }
+    :root { color-scheme: light; --muted:#6b7280; --err:#b91c1c; --accent:#4338ca; }
     body { margin: 0; font-family: system-ui, -apple-system, Segoe UI, sans-serif; background: transparent; color: #1f2937; }
-    #status { padding: 16px; text-align: center; font-size: 14px; color: #6b7280; }
-    #status.error { color: #b91c1c; }
-    .checkout-container { min-height: 450px; }
-    #cancel { display: none; margin: 8px auto 16px; background: none; border: 0; color: #6b7280; text-decoration: underline; cursor: pointer; font-size: 13px; }
+    #status { display: flex; flex-direction: column; align-items: center; gap: 12px; padding: 32px 16px; text-align: center; font-size: 14px; color: var(--muted); }
+    #status[hidden] { display: none; }
+    #status.error { color: var(--err); }
+    .spinner { width: 28px; height: 28px; border: 3px solid #e5e7eb; border-top-color: var(--accent); border-radius: 50%; animation: spin .8s linear infinite; }
+    #status.error .spinner { display: none; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .hint { color: var(--muted); font-size: 12px; max-width: 420px; }
+    .checkout-container { min-height: 0; }
+    .checkout-container.open { min-height: 450px; }
+    .actions { display: flex; gap: 12px; justify-content: center; }
+    button { font: inherit; font-size: 13px; cursor: pointer; }
+    #retry { display: none; padding: 8px 14px; border-radius: 8px; border: 1px solid var(--accent); background: var(--accent); color: #fff; }
+    #cancel { display: none; margin: 8px auto 16px; background: none; border: 0; color: var(--muted); text-decoration: underline; }
   </style>
 </head>
 <body>
-  <div id="status">Loading secure checkout…</div>
+  <div id="status"><div class="spinner"></div><div id="statusText">Loading secure checkout…</div><div id="hint" class="hint"></div>
+    <div class="actions"><button id="retry" type="button">Try again</button></div></div>
   <div class="checkout-container"></div>
   <button id="cancel" type="button">Cancel</button>
 
 <script>
   // Talks to the HighLevel checkout that embeds this page (see GHL Custom Payment Provider docs).
   const statusEl = document.getElementById('status');
+  const statusText = document.getElementById('statusText');
+  const hintEl = document.getElementById('hint');
+  const retryBtn = document.getElementById('retry');
   const cancelBtn = document.getElementById('cancel');
-  let started = false;
+  const container = document.querySelector('.checkout-container');
+
+  const PROPS_TIMEOUT_MS = 15000;
+  const LOAD_TIMEOUT_MS = 25000;
+
+  let props = null;          // last payment_initiate_props from HighLevel
+  let busy = false;          // a session request / checkout open is in flight
+  let paddleToken = null;    // Paddle.js can only be initialized once per page
+  let session = null;
+  let loadTimer = null;
 
   function toParent(msg) {
     window.parent.postMessage(JSON.stringify(msg), '*');
   }
-  function setStatus(text, isError) {
-    statusEl.textContent = text;
-    statusEl.className = isError ? 'error' : '';
-    statusEl.style.display = text ? 'block' : 'none';
+  function setStatus(text, { error = false, hint = '', retry = false } = {}) {
+    statusEl.hidden = !text;
+    statusEl.className = error ? 'error' : '';
+    statusText.textContent = text;
+    hintEl.textContent = hint;
+    retryBtn.style.display = retry ? 'inline-block' : 'none';
   }
-  function fail(description) {
-    setStatus(description, true);
+  function fail(description, hint) {
+    busy = false;
+    clearTimeout(loadTimer);
+    setStatus(description, { error: true, hint, retry: !!props });
     toParent({ type: 'custom_element_error_response', error: { description } });
   }
 
   cancelBtn.addEventListener('click', () => toParent({ type: 'custom_element_close_response' }));
+  retryBtn.addEventListener('click', () => props && start(props));
 
-  window.addEventListener('message', async (event) => {
-    let data = event.data;
-    if (typeof data === 'string') {
-      try { data = JSON.parse(data); } catch { return; }
+  function onPaddleEvent(e) {
+    if (e.name === 'checkout.loaded') {
+      clearTimeout(loadTimer);
+      busy = false;
+      setStatus('');
+      cancelBtn.style.display = 'block';
     }
-    if (!data || typeof data !== 'object') return;
-
-    if (data.type === 'setup_initiate_props') {
-      fail('Saving a card without a payment is not supported by Paddle.');
-      return;
+    if (e.name === 'checkout.completed') {
+      setStatus('Payment received. Finishing up…');
+      toParent({ type: 'custom_element_success_response', chargeId: (e.data && e.data.transaction_id) || session.transactionId });
     }
-    if (data.type !== 'payment_initiate_props' || started) return;
-    started = true;
+    if (e.name === 'checkout.error') fail((e.error && e.error.detail) || (e.data && e.data.error && e.data.error.detail) || 'Payment failed. Please try again.');
+    if (e.name === 'checkout.closed') toParent({ type: 'custom_element_close_response' });
+  }
 
+  async function start(data) {
+    if (busy) return;
+    busy = true;
+    cancelBtn.style.display = 'none';
+    container.classList.remove('open');
+    setStatus('Preparing secure checkout…');
     try {
       const res = await fetch('/api/checkout/session', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(data),
       });
-      const session = await res.json();
-      if (!res.ok) throw new Error(session.error || 'Could not start checkout');
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(json.error || 'Could not start checkout.');
+      session = json;
 
-      if (session.environment === 'sandbox') Paddle.Environment.set('sandbox');
-      Paddle.Initialize({
-        token: session.token,
-        eventCallback: (e) => {
-          if (e.name === 'checkout.loaded') { setStatus(''); cancelBtn.style.display = 'block'; }
-          if (e.name === 'checkout.completed') {
-            toParent({ type: 'custom_element_success_response', chargeId: e.data.transaction_id || session.transactionId });
-          }
-          if (e.name === 'checkout.error') fail((e.error && e.error.detail) || 'Payment failed. Please try again.');
-          if (e.name === 'checkout.closed') toParent({ type: 'custom_element_close_response' });
-        },
-      });
+      if (!window.Paddle) throw new Error('Paddle.js could not be loaded. Check your connection or ad blocker.');
+      if (!paddleToken) {
+        if (session.environment === 'sandbox') Paddle.Environment.set('sandbox');
+        Paddle.Initialize({ token: session.token, eventCallback: onPaddleEvent });
+        paddleToken = session.token;
+      }
+
+      setStatus('Opening Paddle checkout…');
+      container.classList.add('open');
+      loadTimer = setTimeout(() => fail(
+        'Paddle checkout did not load.',
+        'In Paddle, set a default payment link on an approved domain (Checkout → Checkout settings) and make sure the website is approved.',
+      ), LOAD_TIMEOUT_MS);
+
       Paddle.Checkout.open({
         transactionId: session.transactionId,
         customer: session.email ? { email: session.email } : undefined,
@@ -89,13 +126,42 @@
         },
       });
     } catch (err) {
-      started = false;
+      container.classList.remove('open');
       fail(err.message);
     }
+  }
+
+  window.addEventListener('message', (event) => {
+    let data = event.data;
+    if (typeof data === 'string') {
+      try { data = JSON.parse(data); } catch { return; }
+    }
+    if (!data || typeof data !== 'object') return;
+
+    if (data.type === 'setup_initiate_props') {
+      fail('Saving a card without a payment is not supported by Paddle.');
+      return;
+    }
+    if (data.type !== 'payment_initiate_props') return;
+    props = data;
+    start(data);
   });
 
-  // Tell HighLevel we're ready to receive payment_initiate_props.
-  toParent({ type: 'custom_provider_ready', loaded: true, addCardOnFileSupported: false });
+  // Tell HighLevel we're ready for payment_initiate_props. Its listener can attach after this
+  // frame loads, so repeat the signal until the props arrive.
+  const ready = () => toParent({ type: 'custom_provider_ready', loaded: true, addCardOnFileSupported: false });
+  ready();
+  let readyTries = 0;
+  const readyTimer = setInterval(() => {
+    if (props || ++readyTries > 10) return clearInterval(readyTimer);
+    ready();
+  }, 1500);
+  setTimeout(() => {
+    if (!props) setStatus('Waiting for payment details from the checkout page…', {
+      error: true,
+      hint: 'Reload the page. If this keeps happening, make sure Paddle is set as the default payment provider in Payments → Integrations.',
+    });
+  }, PROPS_TIMEOUT_MS);
 </script>
 </body>
 </html>

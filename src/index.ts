@@ -1,7 +1,7 @@
 import express from 'express';
 import path from 'path';
 import { config } from './config';
-import { oauthRouter } from './routes/oauth';
+import { escapeHtml, oauthRouter, page } from './routes/oauth';
 import { settingsRouter } from './routes/settings';
 import { checkoutRouter } from './routes/checkout';
 import { queryRouter } from './routes/query';
@@ -29,7 +29,9 @@ app.use((_req, res, next) => {
 
 const publicDir = path.join(__dirname, '..', 'public');
 app.get('/checkout', (_req, res) => res.sendFile(path.join(publicDir, 'checkout.html')));
-app.get('/settings', (_req, res) => res.sendFile(path.join(publicDir, 'settings.html')));
+// The dashboard is GHL's custom page and side-panel link; serve it at the root too so a link
+// to the bare app URL never hits a 404.
+app.get(['/', '/settings', '/dashboard', '/app'], (_req, res) => res.sendFile(path.join(publicDir, 'settings.html')));
 app.use(express.static(publicDir));
 
 app.get('/health', (_req, res) => res.json({ ok: true }));
@@ -39,6 +41,15 @@ app.use(settingsRouter);
 app.use(checkoutRouter);
 app.use(queryRouter);
 app.use(paddleWebhookRouter);
+
+// Friendly 404 instead of Express's bare "Cannot GET".
+app.use((req, res) => {
+  if (req.method === 'GET' && req.accepts('html')) {
+    return res.status(404).send(page('Page not found', `<p>Nothing lives at <code>${escapeHtml(req.path)}</code>.</p>
+      <p><a href="/">Open the Paddle dashboard</a></p>`));
+  }
+  res.status(404).json({ error: 'Not found' });
+});
 
 // On Vercel the exported app runs as a function; locally we listen on a port.
 if (!process.env.VERCEL) {

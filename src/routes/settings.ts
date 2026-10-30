@@ -2,6 +2,7 @@ import { Router, type Request, type Response, type NextFunction } from 'express'
 import type { Mode } from '../config';
 import { db } from '../db';
 import { decryptGhlSso, signSession, verifySession } from '../lib/crypto';
+import { fromMinor } from '../lib/money';
 import { UserError, connectPaddle, disconnectPaddle } from '../paddle/accounts';
 
 export const settingsRouter = Router();
@@ -35,6 +36,45 @@ settingsRouter.get('/api/settings', auth, async (_req, res) => {
     return a ? { connected: true, connectedAt: a.updatedAt } : { connected: false };
   };
   res.json({ test: status('test'), live: status('live') });
+});
+
+/** Dashboard data: 30-day totals per mode and currency, plus the latest payments. */
+settingsRouter.get('/api/settings/overview', auth, async (_req, res) => {
+  const locationId = res.locals.locationId;
+  const since = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+  const [totals, recent, subscriptions] = await Promise.all([
+    db.payment.groupBy({
+      by: ['mode', 'currency'],
+      where: { locationId, status: { in: ['completed', 'paid'] }, createdAt: { gte: since } },
+      _sum: { amountMinor: true },
+      _count: true,
+    }),
+    db.payment.findMany({ where: { locationId }, orderBy: { createdAt: 'desc' }, take: 25 }),
+    db.payment.groupBy({
+      by: ['mode'],
+      where: { locationId, paddleSubscriptionId: { not: null }, status: { in: ['completed', 'paid'] } },
+      _count: true,
+    }),
+  ]);
+  res.json({
+    totals: totals.map((t) => ({
+      mode: t.mode,
+      currency: t.currency,
+      count: t._count,
+      amount: fromMinor(t._sum.amountMinor ?? 0, t.currency),
+    })),
+    subscriptions: Object.fromEntries(subscriptions.map((s) => [s.mode, s._count])),
+    recent: recent.map((p) => ({
+      id: p.paddleTransactionId,
+      mode: p.mode,
+      amount: fromMinor(p.amountMinor, p.currency),
+      currency: p.currency,
+      status: p.status,
+      subscription: !!(p.paddleSubscriptionId || p.ghlSubscriptionId),
+      ghlOrderId: p.ghlOrderId,
+      createdAt: p.createdAt,
+    })),
+  });
 });
 
 settingsRouter.post('/api/settings/connect', auth, async (req, res) => {
