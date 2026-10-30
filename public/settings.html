@@ -272,31 +272,58 @@
     try { await render(); } finally { e.target.disabled = false; }
   };
 
-  // HighLevel custom pages: ask the parent for encrypted user data, then trade it for a session.
+  // HighLevel custom pages: ask for encrypted user data, then trade it for a session.
+  // Depending on where HighLevel opens this page (menu link, Payments → Integrations panel)
+  // it can sit one or more frames deep, so ask every ancestor and keep asking for a while.
+  let exchanging = false;
   window.addEventListener('message', async ({ data }) => {
-    if (!data || data.message !== 'REQUEST_USER_DATA_RESPONSE' || token) return;
+    if (typeof data === 'string') {
+      try { data = JSON.parse(data); } catch { return; }
+    }
+    if (!data || data.message !== 'REQUEST_USER_DATA_RESPONSE' || !data.payload || token || exchanging) return;
+    exchanging = true;
     try {
       const res = await fetch('/api/settings/session', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ encrypted: data.payload }),
       });
-      const json = await res.json();
-      if (!res.ok) throw new Error(json.error);
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(json.error || 'Could not verify your HighLevel session.');
       token = json.token;
       if (json.userName) { $('who').textContent = json.userName; }
       await render();
     } catch (err) {
       loading.textContent = err.message || 'Could not load the dashboard.';
+    } finally {
+      exchanging = false;
     }
   });
 
-  const outside = 'Open this page from inside HighLevel: Payments → Integrations → Paddle Pay, or the Paddle Pay item in the sub-account menu.';
+  function ancestors() {
+    const frames = [];
+    let w = window;
+    while (w.parent && w.parent !== w && frames.length < 5) { w = w.parent; frames.push(w); }
+    return frames;
+  }
+  function requestUserData() {
+    for (const f of ancestors()) {
+      try { f.postMessage({ message: 'REQUEST_USER_DATA' }, '*'); } catch {}
+    }
+  }
+
+  const outside = 'Open this page from inside HighLevel: the Paddle Pay item in the sub-account menu, or Payments → Integrations → Paddle Pay.';
   if (window.parent === window) {
     loading.textContent = outside;
   } else {
-    window.parent.postMessage({ message: 'REQUEST_USER_DATA' }, '*');
-    setTimeout(() => { if (!token) loading.textContent = outside; }, 8000);
+    requestUserData();
+    let tries = 0;
+    const timer = setInterval(() => {
+      if (token || ++tries > 20) return clearInterval(timer);
+      requestUserData();
+      if (tries === 8) loading.textContent = 'Still waiting for HighLevel to share your session… If this doesn\'t load, reload the page.';
+      if (tries === 20) loading.textContent = outside;
+    }, 1000);
   }
 </script>
 </body>
