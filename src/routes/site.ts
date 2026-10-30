@@ -18,9 +18,11 @@ siteRouter.use(async (req, res, next) => {
     return next();
   }
   try {
+    // Only hosts registered as a merchant checkout domain redirect. Any other host (e.g. a custom
+    // domain added to the project for the app itself) serves the normal site.
     const domain = await db.checkoutDomain.findUnique({ where: { hostname: req.hostname } });
     if (domain?.websiteUrl) return res.redirect(302, domain.websiteUrl);
-    res.status(404).send('Not found');
+    next();
   } catch (e) {
     next(e);
   }
