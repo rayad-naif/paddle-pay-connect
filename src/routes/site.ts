@@ -30,9 +30,16 @@ siteRouter.use(async (req, res, next) => {
 
 const PRODUCT = 'Paddle Pay';
 const UPDATED = '30 October 2026';
-const PLANS = [
-  { name: 'Single account', price: '$29', period: 'per account / month', yearly: 'or $290 / year', features: ['One CRM account', 'Sandbox and live Paddle connections', 'One-time payments and subscriptions', 'Refunds from your CRM', 'Email support'] },
-  { name: 'Unlimited accounts', price: '$149', period: 'per month', yearly: 'or $1,490 / year', features: ['Unlimited CRM accounts', 'Everything in Single account', 'Install across all your accounts at once', 'Priority support'] },
+// One-time purchase: lifetime access, no recurring fee.
+const PRICE = '$997';
+const INCLUDED = [
+  'Lifetime access: pay once, no monthly fees',
+  'Paddle checkout in funnels, forms, store, invoices and payment links',
+  'One-time payments and subscriptions',
+  'Refunds, invoices, customers and discount codes in one dashboard',
+  'Your own checkout domain',
+  'Sandbox and live Paddle connections',
+  'Free updates and email support',
 ];
 
 export function contactLine() {
@@ -97,11 +104,11 @@ ${body}
 }
 
 function pricingCards() {
-  return `<div class="grid">${PLANS.map((p) => `<div class="card">
-    <h3>${p.name}</h3><div class="price">${p.price}</div><div class="muted">${p.period} · ${p.yearly}</div>
-    <ul>${p.features.map((f) => `<li>${f}</li>`).join('')}</ul></div>`).join('')}</div>
-  <p class="muted" style="text-align:center;margin-top:20px">14-day free trial. Prices in USD; sales tax or VAT is added at checkout where applicable.
-  Payments are processed by Paddle.com, our Merchant of Record. Paddle's own transaction fees are charged to your Paddle account separately.</p>`;
+  return `<div class="card" style="max-width:520px;margin:0 auto;text-align:center">
+    <h3>Paddle Pay</h3><div class="price">${PRICE}</div><div class="muted">one-time payment · lifetime access</div>
+    <ul style="text-align:left;display:inline-block">${INCLUDED.map((f) => `<li>${f}</li>`).join('')}</ul></div>
+  <p class="muted" style="text-align:center;margin-top:20px">Price in USD; sales tax or VAT is added at checkout where applicable. 14-day money-back guarantee.
+  Payments are processed by Paddle.com, our Merchant of Record. Paddle's own transaction fees on the payments you take are charged to your Paddle account separately.</p>`;
 }
 
 siteRouter.get('/', (_req, res) => {
@@ -155,9 +162,10 @@ siteRouter.get('/terms', (_req, res) => {
   <h2>2. The Service</h2>
   <p>The Service connects a CRM account to the customer's own Paddle Billing account so that payments taken in the CRM are processed by Paddle. You are responsible for your Paddle account, for being approved by Paddle, and for complying with Paddle's terms and your CRM provider's terms.
   We do not hold or move your customers' funds; payments go directly to your Paddle account.</p>
-  <h2>3. Subscriptions and billing</h2>
-  <p>The Service is billed monthly or yearly in advance at the prices shown on our <a href="/pricing">pricing page</a>, after any free trial. Subscriptions renew automatically until cancelled. You can cancel at any time; cancellation takes effect at the end of the current billing period.
-  We may change prices with at least 30 days' notice before your next renewal.</p>
+  <h2>3. Price and payment</h2>
+  <p>The Service is sold for a one-time payment of ${PRICE} (USD, plus any applicable sales tax or VAT), as shown on our <a href="/pricing">pricing page</a>.
+  The payment gives you a lifetime licence to use the Service, including updates, for as long as we operate it. There are no recurring fees.
+  Price changes apply only to new purchases.</p>
   <h2>4. Acceptable use</h2>
   <p>You must not use the Service to sell anything prohibited by Paddle's Acceptable Use Policy or by law, to process fraudulent payments, or to interfere with the Service or other users.</p>
   <h2>5. Availability and support</h2>
@@ -203,9 +211,9 @@ siteRouter.get('/refunds', (_req, res) => {
   <h1>Refund Policy</h1><p class="muted">Last updated ${UPDATED}</p>
   <p>Purchases of ${PRODUCT} are processed by Paddle.com, our Merchant of Record.</p>
   <h2>14-day money-back guarantee</h2>
-  <p>If you are not satisfied, you can request a full refund within 14 days of your first payment, and within 14 days of a yearly renewal. No questions asked.</p>
-  <h2>Monthly renewals</h2>
-  <p>You can cancel at any time to stop future charges. Monthly renewals after the first 14 days are not refunded, but you keep access until the end of the period you paid for.</p>
+  <p>${PRODUCT} is a one-time purchase of ${PRICE}. If you are not satisfied, you can request a full refund within 14 days of your purchase. No questions asked.</p>
+  <h2>After 14 days</h2>
+  <p>Purchases are not refundable after 14 days, except where the law requires otherwise. There are no recurring charges to cancel.</p>
   <h2>How to request a refund</h2>
   <p>Contact us (${contactLine()}) with your order number, or contact Paddle directly at <a href="https://paddle.net">paddle.net</a>. Approved refunds go back to the original payment method, usually within 5 to 10 business days.</p>
   <h2>Payments you take from your own customers</h2>
