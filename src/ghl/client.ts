@@ -41,8 +41,9 @@ export function authorizeUrl(): string {
   return `https://marketplace.gohighlevel.com/v2/oauth/chooselocation?${params}`;
 }
 
-export function exchangeCode(code: string) {
-  return tokenRequest({ grant_type: 'authorization_code', code, redirect_uri: `${config.appUrl}/oauth/callback` });
+/** redirectUri must equal the one the CRM redirected to (the app's configured redirect URL). */
+export function exchangeCode(code: string, redirectUri = `${config.appUrl}/oauth/callback`) {
+  return tokenRequest({ grant_type: 'authorization_code', code, redirect_uri: redirectUri });
 }
 
 function tokenData(token: TokenResponse) {
@@ -135,12 +136,25 @@ async function installedLocations(companyId: string): Promise<string[]> {
  * Agency install: keep the company token (needed for locations added later), then set up every
  * location the app is already installed in. One failing location doesn't stop the others.
  */
-export async function installForCompany(token: TokenResponse): Promise<{ installed: string[]; failed: string[] }> {
+export async function installForCompany(token: TokenResponse, budgetMs = 6000): Promise<{ installed: string[]; failed: string[]; deferred: number }> {
   const companyId = token.companyId!;
   await saveCompany(token, companyId);
   const installed: string[] = [];
   const failed: string[] = [];
-  for (const locationId of await installedLocations(companyId)) {
+  const started = Date.now();
+  const locations = await installedLocations(companyId).catch((e) => {
+    // Listing needs the oauth scopes; without it the company token is still saved and each
+    // account is set up when Paddle Pay is first opened in it.
+    console.error('Listing installed locations failed', e.message);
+    return [] as string[];
+  });
+  let deferred = 0;
+  for (const locationId of locations) {
+    // Stay well inside the serverless time limit; the rest are set up on first open.
+    if (Date.now() - started > budgetMs) {
+      deferred++;
+      continue;
+    }
     try {
       await installLocationFromCompany(companyId, locationId);
       installed.push(locationId);
@@ -149,7 +163,7 @@ export async function installForCompany(token: TokenResponse): Promise<{ install
       failed.push(locationId);
     }
   }
-  return { installed, failed };
+  return { installed, failed, deferred };
 }
 
 export async function getAccessToken(locationId: string): Promise<string> {

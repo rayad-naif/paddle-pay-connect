@@ -14,17 +14,18 @@ export const siteRouter = Router();
 // On a merchant's checkout domain only /checkout belongs to us; everything else goes to the
 // merchant's own website, so Paddle reviewers never see this app's site under their domain.
 siteRouter.use(async (req, res, next) => {
-  if (req.method !== 'GET' || isAppHost(req.hostname) || req.path === '/checkout' || req.path.startsWith('/api/') || req.path === '/health') {
-    return next();
-  }
+  const appRoute = /^\/(checkout|api|oauth|webhooks|health|settings|dashboard|app)(\/|$)/.test(req.path);
+  if (req.method !== 'GET' || isAppHost(req.hostname) || appRoute) return next();
   try {
     // Only hosts registered as a merchant checkout domain redirect. Any other host (e.g. a custom
     // domain added to the project for the app itself) serves the normal site.
     const domain = await db.checkoutDomain.findUnique({ where: { hostname: req.hostname } });
     if (domain?.websiteUrl) return res.redirect(302, domain.websiteUrl);
     next();
-  } catch (e) {
-    next(e);
+  } catch (e: any) {
+    // A failed lookup must not take the page down: serve the normal site.
+    console.error('Checkout domain lookup failed', e.message);
+    next();
   }
 });
 
