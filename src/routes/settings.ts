@@ -1,6 +1,7 @@
 import { Router, type Request, type Response, type NextFunction } from 'express';
 import type { Mode } from '../config';
 import { db } from '../db';
+import * as ghl from '../ghl/client';
 import { decryptGhlSso, signSession, verifySession } from '../lib/crypto';
 import { checkDomain, getDomainState, removeDomain, setDomain } from '../domains';
 import { fromMinor } from '../lib/money';
@@ -11,14 +12,34 @@ export const settingsRouter = Router();
 /** Exchanges GHL's encrypted user data (from the custom page) for a session token. */
 settingsRouter.post('/api/settings/session', async (req, res) => {
   try {
-    const user = decryptGhlSso(String(req.body?.encrypted ?? ''));
+    let user: Record<string, any>;
+    try {
+      user = decryptGhlSso(String(req.body?.encrypted ?? ''));
+    } catch {
+      return res.status(401).json({ error: 'Could not verify your CRM session. Reload the page.' });
+    }
     const locationId = user.activeLocation;
-    if (!locationId) return res.status(400).json({ error: 'Open this page from inside your CRM account.' });
-    const installed = await db.installation.findUnique({ where: { locationId } });
-    if (!installed) return res.status(404).json({ error: 'Paddle Pay is not installed for this account. Install it again from the CRM app marketplace.' });
-    res.json({ token: signSession(locationId), locationId, userName: user.userName ?? '' });
-  } catch {
-    res.status(401).json({ error: 'Could not verify your CRM session. Reload the page.' });
+    if (!locationId) {
+      return res.status(400).json({ error: 'Paddle is connected per account. Switch into one of your accounts and open Paddle Pay there.' });
+    }
+
+    let installed = await db.installation.findUnique({ where: { locationId } });
+    if (!installed && user.companyId && (await db.company.findUnique({ where: { companyId: user.companyId } }))) {
+      // Installed at the company level, but this account wasn't set up yet (e.g. a missed webhook).
+      await ghl.installLocationFromCompany(user.companyId, locationId).catch((e) => console.warn('Location setup failed', e.message));
+      installed = await db.installation.findUnique({ where: { locationId } });
+    }
+    if (!installed) return res.status(404).json({ error: 'Paddle Pay is not installed for this account. Install it from the CRM app marketplace.' });
+
+    // Make sure the app is listed in Payments > Integrations; report why if it can't be.
+    const providerError = await ghl.ensureProvider(locationId).then(() => null, (e) => {
+      console.error(`ensureProvider ${locationId}`, e.message);
+      return String(e.message);
+    });
+    res.json({ token: signSession(locationId), locationId, userName: user.userName ?? '', providerError });
+  } catch (e: any) {
+    console.error('Settings session failed', e);
+    res.status(500).json({ error: 'Something went wrong loading Paddle Pay. Reload the page.' });
   }
 });
 

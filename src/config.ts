@@ -29,6 +29,9 @@ export const config = {
       'payments/custom-provider.write',
       'products.readonly',
       'products/prices.readonly',
+      // Agency installs: list the locations the app is installed in and get a token for each.
+      'oauth.readonly',
+      'oauth.write',
     ],
   },
   // Shown on the public website and legal pages (Paddle reviews these before approving a domain).
@@ -46,7 +49,8 @@ export const config = {
   provider: {
     name: process.env.PROVIDER_NAME ?? 'Paddle',
     description: process.env.PROVIDER_DESCRIPTION ?? 'Accept payments with Paddle',
-    imageUrl: process.env.PROVIDER_IMAGE_URL ?? '',
+    // PNG: the payments integrations page may not render SVG logos.
+    imageUrl: process.env.PROVIDER_IMAGE_URL || `${(process.env.APP_URL ?? '').replace(/\/$/, '')}/logo.png`,
   },
 };
 
