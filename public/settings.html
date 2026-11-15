@@ -515,6 +515,11 @@
       token = json.token;
       if (json.userName) { $('who').textContent = json.userName; }
       await render();
+      if (json.providerError) {
+        const n = $('notice');
+        n.hidden = false;
+        n.textContent = `Paddle Pay couldn't be added to Payments → Integrations yet (${json.providerError}). Reload this page to retry. If it keeps failing, contact support.`;
+      }
     } catch (err) {
       loading.textContent = err.message || 'Could not load the dashboard.';
     } finally {

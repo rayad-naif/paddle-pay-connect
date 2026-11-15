@@ -24,6 +24,18 @@ model Installation {
   paddleAccounts  PaddleAccount[]
 }
 
+/// Agency-level (company) install. Its token mints location tokens for every location the app is
+/// installed in, including locations added after the install.
+model Company {
+  companyId       String   @id
+  accessTokenEnc  String
+  refreshTokenEnc String
+  expiresAt       DateTime
+  scope           String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+}
+
 /// A Paddle connection for one location in one mode ("test" = sandbox, "live").
 model PaddleAccount {
   id                    String       @id

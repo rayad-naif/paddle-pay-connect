@@ -8,7 +8,7 @@ client-side token, webhook destination and signing secret automatically.
 
 | Piece | Route | What it does |
 |---|---|---|
-| OAuth install | `GET /oauth/install`, `GET /oauth/callback` | Exchanges the code, stores tokens per location (handles agency bulk installs), registers the provider with `POST /payments/custom-provider/provider` |
+| OAuth install | `GET /oauth/install`, `GET /oauth/callback` (sub-account or agency; agency installs keep the company token and set up every installed location, and later ones via the `INSTALL` webhook or on first open) | Exchanges the code, stores tokens per location (handles agency bulk installs), registers the provider with `POST /payments/custom-provider/provider` |
 | App webhooks | `POST /webhooks/app` | On `UNINSTALL`, revokes the Paddle token, deletes the Paddle webhook destination and wipes stored keys |
 | Management API | `/api/manage/*` | Dashboard tabs: transactions (search, detail, invoice PDF, refunds, CSV export via reports), subscriptions (cancel/pause/resume), customers (portal links), discount codes, webhook deliveries (replay). Uses the merchant's key for the chosen mode |
 | Dashboard / settings | `GET /`, `/settings`, `/dashboard` + `/api/settings/*` | GHL custom page and side-panel link. Shows 30-day volume, recent payments and a setup checklist. Decrypts GHL SSO data, takes a Paddle API key, auto-detects sandbox/live, creates a client token + notification destination, then calls `POST /payments/custom-provider/connect` |
@@ -42,8 +42,9 @@ Use one output for `ENCRYPTION_KEY` and another for `SESSION_SECRET`. **Never ch
 
 ### 2. Create the HighLevel Marketplace app
 In marketplace.gohighlevel.com → My Apps → Create App:
-- **Category / type:** Payment Provider (Third-party provider). **Distribution:** Sub-account.
-- **Scopes:** `payments/orders.readonly payments/orders.write payments/subscriptions.readonly payments/transactions.readonly payments/custom-provider.readonly payments/custom-provider.write products.readonly products/prices.readonly`
+- **Category / type:** Payment Provider (Third-party provider). **Distribution:** Agency and Sub-account.
+- **Scopes:** `payments/orders.readonly payments/orders.write payments/subscriptions.readonly payments/transactions.readonly payments/custom-provider.readonly payments/custom-provider.write products.readonly products/prices.readonly oauth.readonly oauth.write`
+  (`oauth.*` lets agency installs list their sub-accounts and get a token for each).
 - **Redirect URL:** `{APP_URL}/oauth/callback`
 - **Webhook URL:** `{APP_URL}/webhooks/app` (install/uninstall events are sent here automatically).
   GHL rejects any URL containing "ghl" or "highlevel", including the domain.

@@ -12,26 +12,51 @@ oauthRouter.get('/oauth/install', (_req, res) => res.redirect(ghl.authorizeUrl()
 
 oauthRouter.get('/oauth/callback', async (req, res) => {
   const code = req.query.code;
-  if (typeof code !== 'string') return res.status(400).send('Missing code');
+  if (typeof code !== 'string') return res.status(400).send(page('Install failed', '<p>The install link is missing its code. Start the install again from the app marketplace.</p>'));
   try {
     const token = await ghl.exchangeCode(code);
-    const locations =
-      token.userType === 'Location' && token.locationId
-        ? [token.locationId]
-        : await ghl.installForCompany(token);
-    if (token.userType === 'Location' && token.locationId) await ghl.saveInstallation(token, token.locationId);
+    const name = escapeHtml(config.provider.name);
+    const next = `<p>Next: open each account, go to <b>Payments &gt; Integrations</b>, open <b>${name}</b>, connect your Paddle API key, then click <b>Set as default</b>.</p>
+      <p>Full instructions: <a href="/docs">setup guide</a>.</p>`;
 
-    for (const locationId of locations) {
-      await ghl.ensureProvider(locationId).catch((e) => console.error(`ensureProvider ${locationId}`, e.message));
+    if (token.userType === 'Company' || (!token.locationId && token.companyId)) {
+      // Agency install: the company token is stored, and every account the app is (or later gets)
+      // installed in is set up automatically.
+      const { installed, failed } = await ghl.installForCompany(token);
+      const registered = await registerAll(installed);
+      return res.send(page('Installed', `<p>${name} is installed for your company${installed.length ? ` and set up in ${installed.length} account${installed.length === 1 ? '' : 's'}` : ''}.</p>
+        ${installed.length === 0 ? '<p>Accounts you install it in from now on are set up automatically.</p>' : ''}
+        ${failed.length || registered.failed ? `<p style="color:#b45309">${failed.length + registered.failed} account(s) couldn’t be set up yet. They are set up automatically the first time Paddle Pay is opened in them.</p>` : ''}
+        ${next}`));
     }
-    res.send(page('Installed', `<p>${escapeHtml(config.provider.name)} is installed for ${locations.length} account${locations.length === 1 ? '' : 's'}.</p>
-      <p>Next: in your CRM open <b>Payments &gt; Integrations</b>, open <b>${escapeHtml(config.provider.name)}</b>, paste your Paddle API key, then click <b>Set as default</b>.</p>
-      <p>Full instructions: <a href="/docs">setup guide</a>.</p>`));
+
+    if (!token.locationId) throw new Error('The CRM did not say which account the app was installed in. Start the install again.');
+    await ghl.saveInstallation(token, token.locationId);
+    const registered = await registerAll([token.locationId]);
+    res.send(page('Installed', `<p>${name} is installed for this account.</p>
+      ${registered.failed ? `<p style="color:#b45309">It couldn’t be added to Payments &gt; Integrations yet: ${escapeHtml(registered.error)}. Open Paddle Pay from the account menu to retry.</p>` : ''}
+      ${next}`));
   } catch (e: any) {
     console.error('OAuth callback failed', e);
-    res.status(500).send(page('Install failed', `<p>${escapeHtml(e.message)}</p>`));
+    res.status(500).send(page('Install failed', `<p>${escapeHtml(e.message)}</p><p>Start the install again from the app marketplace. If it keeps failing, contact support.</p>`));
   }
 });
+
+/** (Re)registers the payment provider so the app shows in Payments > Integrations. */
+async function registerAll(locationIds: string[]) {
+  let failed = 0;
+  let error = '';
+  for (const locationId of locationIds) {
+    try {
+      await ghl.ensureProvider(locationId, true);
+    } catch (e: any) {
+      failed++;
+      error = e.message;
+      console.error(`ensureProvider ${locationId}`, e.message);
+    }
+  }
+  return { failed, error };
+}
 
 /** App lifecycle webhooks from the marketplace (INSTALL / UNINSTALL). */
 // GHL rejects URLs containing "ghl"/"highlevel", so routes avoid those words.
@@ -46,16 +71,40 @@ oauthRouter.post('/webhooks/app', async (req, res) => {
     if (!ok) return res.status(401).json({ error: 'Invalid signature' });
   }
 
-  const { type, locationId } = req.body ?? {};
-  if (type === 'UNINSTALL' && locationId) {
-    const accounts = await db.paddleAccount.findMany({ where: { locationId } });
-    for (const a of accounts) await cleanupPaddle(a);
-    await removeDomain(locationId).catch((e) => console.warn('Remove checkout domain failed', e.message));
-    await db.installation.deleteMany({ where: { locationId } });
-    console.log(`Uninstalled ${locationId}`);
+  const { type, locationId, companyId } = req.body ?? {};
+  try {
+    if (type === 'INSTALL' && locationId && companyId) {
+      // An agency installed the app into an account (including bulk and "future accounts"
+      // installs): no OAuth redirect happens for it, so set it up from the company token.
+      const company = await db.company.findUnique({ where: { companyId } });
+      if (company) {
+        await ghl.installLocationFromCompany(companyId, locationId);
+        await ghl.ensureProvider(locationId, true);
+        console.log(`Installed ${locationId} from company ${companyId}`);
+      }
+    }
+    if (type === 'UNINSTALL') {
+      const locations = locationId
+        ? [locationId]
+        : companyId
+          ? (await db.installation.findMany({ where: { companyId }, select: { locationId: true } })).map((i) => i.locationId)
+          : [];
+      for (const id of locations) await uninstallLocation(id);
+      if (!locationId && companyId) await db.company.deleteMany({ where: { companyId } });
+      console.log(`Uninstalled ${locationId ?? `company ${companyId}`}`);
+    }
+  } catch (e: any) {
+    console.error(`App webhook ${type} failed`, e.message);
   }
   res.json({ received: true });
 });
+
+async function uninstallLocation(locationId: string) {
+  const accounts = await db.paddleAccount.findMany({ where: { locationId } });
+  for (const a of accounts) await cleanupPaddle(a);
+  await removeDomain(locationId).catch((e) => console.warn('Remove checkout domain failed', e.message));
+  await db.installation.deleteMany({ where: { locationId } });
+}
 
 export function page(title: string, body: string) {
   return `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
