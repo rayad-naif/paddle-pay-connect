@@ -14,7 +14,10 @@ oauthRouter.get('/oauth/callback', async (req, res) => {
   const code = req.query.code;
   if (typeof code !== 'string') return res.status(400).send(page('Install failed', '<p>The install link is missing its code. Start the install again from the app marketplace.</p>'));
   try {
-    const token = await ghl.exchangeCode(code);
+    // Exchange with the redirect URL the CRM used, which can differ from APP_URL (custom domain).
+    const host = req.get('x-forwarded-host') ?? req.get('host');
+    const token = await ghl.exchangeCode(code, host ? `https://${host}/oauth/callback` : undefined)
+      .catch((e) => (host && `https://${host}` !== config.appUrl ? ghl.exchangeCode(code) : Promise.reject(e)));
     const name = escapeHtml(config.provider.name);
     const next = `<p>Next: open each account, go to <b>Payments &gt; Integrations</b>, open <b>${name}</b>, connect your Paddle API key, then click <b>Set as default</b>.</p>
       <p>Full instructions: <a href="/docs">setup guide</a>.</p>`;
@@ -22,11 +25,11 @@ oauthRouter.get('/oauth/callback', async (req, res) => {
     if (token.userType === 'Company' || (!token.locationId && token.companyId)) {
       // Agency install: the company token is stored, and every account the app is (or later gets)
       // installed in is set up automatically.
-      const { installed, failed } = await ghl.installForCompany(token);
-      const registered = await registerAll(installed);
+      const { installed, failed, deferred } = await ghl.installForCompany(token);
+      const registered = await registerAll(installed, 2500);
       return res.send(page('Installed', `<p>${name} is installed for your company${installed.length ? ` and set up in ${installed.length} account${installed.length === 1 ? '' : 's'}` : ''}.</p>
         ${installed.length === 0 ? '<p>Accounts you install it in from now on are set up automatically.</p>' : ''}
-        ${failed.length || registered.failed ? `<p style="color:#b45309">${failed.length + registered.failed} account(s) couldn’t be set up yet. They are set up automatically the first time Paddle Pay is opened in them.</p>` : ''}
+        ${failed.length || registered.failed || deferred || registered.deferred ? `<p>${failed.length + registered.failed + deferred + registered.deferred} more account(s) finish setting up automatically the first time Paddle Pay is opened in them.</p>` : ''}
         ${next}`));
     }
 
@@ -43,10 +46,16 @@ oauthRouter.get('/oauth/callback', async (req, res) => {
 });
 
 /** (Re)registers the payment provider so the app shows in Payments > Integrations. */
-async function registerAll(locationIds: string[]) {
+async function registerAll(locationIds: string[], budgetMs = Infinity) {
   let failed = 0;
+  let deferred = 0;
   let error = '';
+  const started = Date.now();
   for (const locationId of locationIds) {
+    if (Date.now() - started > budgetMs) {
+      deferred++; // registered when the dashboard is first opened there
+      continue;
+    }
     try {
       await ghl.ensureProvider(locationId, true);
     } catch (e: any) {
@@ -55,7 +64,7 @@ async function registerAll(locationIds: string[]) {
       console.error(`ensureProvider ${locationId}`, e.message);
     }
   }
-  return { failed, error };
+  return { failed, deferred, error };
 }
 
 /** App lifecycle webhooks from the marketplace (INSTALL / UNINSTALL). */

@@ -57,6 +57,16 @@ app.use((req, res) => {
   res.status(404).json({ error: 'Not found' });
 });
 
+// Last-resort error handler: log it and show what went wrong instead of a bare "Internal Server Error".
+app.use((err: any, req: express.Request, res: express.Response, _next: express.NextFunction) => {
+  console.error(`Unhandled error on ${req.method} ${req.path}`, err);
+  if (res.headersSent) return;
+  const message = err?.message ?? 'Unexpected error';
+  if (req.accepts('html')) return res.status(500).send(page('Something went wrong', `<p>${escapeHtml(message)}</p><p>Try again. If it keeps happening, contact support with this message.</p>`));
+  res.status(500).json({ error: message });
+});
+process.on('unhandledRejection', (e) => console.error('Unhandled rejection', e));
+
 // On Vercel the exported app runs as a function; locally we listen on a port.
 if (!process.env.VERCEL) {
   app.listen(config.port, () => {
