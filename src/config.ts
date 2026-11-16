@@ -19,8 +19,6 @@ export const config = {
     apiBase: (process.env.GHL_API_BASE ?? 'https://services.leadconnectorhq.com').replace(/\/$/, ''),
     apiVersion: process.env.GHL_API_VERSION ?? '2021-07-28',
     webhookPublicKey: process.env.GHL_WEBHOOK_PUBLIC_KEY?.replace(/\\n/g, '\n') || undefined,
-    // Newer webhooks are signed with Ed25519 in x-ghl-signature (PEM public key from the docs).
-    webhookEd25519Key: process.env.GHL_WEBHOOK_ED25519_PUBLIC_KEY?.replace(/\\n/g, '\n') || undefined,
     providerWebhookUrl: 'https://backend.leadconnectorhq.com/payments/custom-provider/webhook',
     scopes: [
       'payments/orders.readonly',
@@ -36,8 +34,6 @@ export const config = {
       'oauth.write',
     ],
   },
-  // Vercel sends it as a Bearer token to cron routes when CRON_SECRET is set.
-  cronSecret: process.env.CRON_SECRET ?? '',
   // Shown on the public website and legal pages (Paddle reviews these before approving a domain).
   business: {
     name: process.env.BUSINESS_NAME ?? 'IR Solutions',

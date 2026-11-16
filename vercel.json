@@ -9,6 +9,5 @@
       "source": "/(.*)",
       "headers": [{ "key": "Content-Security-Policy", "value": "frame-ancestors *" }]
     }
-  ],
-  "crons": [{ "path": "/api/cron/sync", "schedule": "17 4 * * *" }]
+  ]
 }
