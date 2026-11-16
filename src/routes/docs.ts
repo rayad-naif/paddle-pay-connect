@@ -167,7 +167,7 @@ docsRouter.get('/docs', (_req, res) => {
   <ol>
     <li>Open your CRM’s <b>app marketplace</b>, find <b>Paddle Pay</b> and click <b>Install</b>, or use <a href="/oauth/install">this install link</a>.</li>
     <li>Choose the account (or accounts) to install it in and approve the permissions. The app needs to read your products and prices, and to manage payment integrations, orders and transactions.</li>
-    <li>You’ll see an “Installed” confirmation. Paddle Pay now appears under <b>Payments → Integrations</b>, and as a <b>Paddle Pay</b> item in the account menu that opens the dashboard.</li>
+    <li>You’ll see an “Installed” confirmation. A <b>Paddle Settings</b> item appears in each account’s left menu; it opens the Paddle Pay dashboard. Paddle Pay shows under <b>Payments → Integrations</b> once you’ve connected a Paddle API key there (step 4).</li>
   </ol>
 
   <h2 id="api-keys">3. Create Paddle API keys</h2>
@@ -187,7 +187,7 @@ docsRouter.get('/docs', (_req, res) => {
 
   <h2 id="connect">4. Connect Paddle</h2>
   <ol>
-    <li>Open the Paddle Pay dashboard from your CRM (the Paddle Pay menu item, or <b>Payments → Integrations → Paddle Pay</b>).</li>
+    <li>Open <b>Paddle Settings</b> from the account’s left menu (the Paddle Pay dashboard).</li>
     <li>Go to <b>Connections</b>. Paste the sandbox key into <b>Sandbox</b> and click <b>Connect</b>. Then do the same with the live key in <b>Live</b>.</li>
   </ol>
   <p>When you connect, Paddle Pay checks the key’s permissions and creates three things in your Paddle account automatically:</p>
@@ -242,7 +242,7 @@ docsRouter.get('/docs', (_req, res) => {
   <h2 id="default-provider">8. Make Paddle Pay your payment provider</h2>
   <ol>
     <li>In your CRM, open <b>Payments → Integrations</b>.</li>
-    <li>Find <b>Paddle Pay</b> and click <b>Set as default</b>.</li>
+    <li>Find <b>Paddle Pay</b> and click <b>Set as default</b>. If it isn’t listed, connect a Paddle API key in <b>Paddle Settings</b> first (step 4): it appears once a key is connected.</li>
     <li>Your CRM has a test mode and a live mode for payments. Test mode uses your sandbox key; live mode uses your live key. Make sure the matching key is connected.</li>
   </ol>
 
