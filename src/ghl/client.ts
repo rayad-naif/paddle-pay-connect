@@ -166,6 +166,38 @@ export async function installForCompany(token: TokenResponse, budgetMs = 6000): 
   return { installed, failed, deferred };
 }
 
+/**
+ * Sets up every location of the company that has the app but isn't ready yet: gets its token
+ * and registers the payment provider so it shows in Payments > Integrations. Covers locations
+ * attached after the OAuth redirect when the INSTALL webhook didn't arrive.
+ */
+export async function syncCompany(companyId: string, budgetMs = 7000) {
+  const started = Date.now();
+  const locations = await installedLocations(companyId);
+  let ready = 0;
+  let pending = 0;
+  for (const locationId of locations) {
+    const inst = await db.installation.findUnique({ where: { locationId } });
+    if (inst?.providerCreated) {
+      ready++;
+      continue;
+    }
+    if (Date.now() - started > budgetMs) {
+      pending++;
+      continue;
+    }
+    try {
+      if (!inst) await installLocationFromCompany(companyId, locationId);
+      await ensureProvider(locationId, true);
+      ready++;
+    } catch (e: any) {
+      console.warn(`Sync ${companyId}/${locationId} failed`, e.message);
+      pending++;
+    }
+  }
+  return { total: locations.length, ready, pending };
+}
+
 export async function getAccessToken(locationId: string): Promise<string> {
   const inst = await db.installation.findUnique({ where: { locationId } });
   if (!inst) throw new GhlError(404, `Location ${locationId} has not installed the app`);
