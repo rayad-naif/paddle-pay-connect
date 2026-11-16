@@ -19,8 +19,14 @@ oauthRouter.get('/oauth/callback', async (req, res) => {
     const token = await ghl.exchangeCode(code, host ? `https://${host}/oauth/callback` : undefined)
       .catch((e) => (host && `https://${host}` !== config.appUrl ? ghl.exchangeCode(code) : Promise.reject(e)));
     const name = escapeHtml(config.provider.name);
-    const next = `<p>Next: open each account, go to <b>Payments &gt; Integrations</b>, open <b>${name}</b>, connect your Paddle API key, then click <b>Set as default</b>.</p>
-      <p>Full instructions: <a href="/docs">setup guide</a>.</p>`;
+    // The provider shows in Payments > Integrations once a Paddle key is connected, so the key
+    // comes first.
+    const next = `<h2 style="font-size:18px;margin-top:28px">Next, in each account</h2>
+      <ol>
+        <li>Open <b>Paddle Settings</b> in the account’s left menu and connect your Paddle API key (sandbox and/or live).</li>
+        <li>Then go to <b>Payments &gt; Integrations</b>, find <b>${name}</b> and click <b>Set as default</b>.</li>
+      </ol>
+      <p>${name} appears in Payments &gt; Integrations after the API key is connected. Full instructions: <a href="/docs">setup guide</a>.</p>`;
 
     if (token.userType === 'Company' || (!token.locationId && token.companyId)) {
       // Agency install: the company token is stored, and every account the app is (or later gets)
@@ -37,7 +43,7 @@ oauthRouter.get('/oauth/callback', async (req, res) => {
     await ghl.saveInstallation(token, token.locationId);
     const registered = await registerAll([token.locationId]);
     res.send(page('Installed', `<p>${name} is installed for this account.</p>
-      ${registered.failed ? `<p style="color:#b45309">It couldn’t be added to Payments &gt; Integrations yet: ${escapeHtml(registered.error)}. Open Paddle Pay from the account menu to retry.</p>` : ''}
+      ${registered.failed ? `<p style="color:#b45309">It couldn’t be added to Payments &gt; Integrations yet: ${escapeHtml(registered.error)}. Open Paddle Settings from the account menu to retry.</p>` : ''}
       ${next}`));
   } catch (e: any) {
     console.error('OAuth callback failed', e);
